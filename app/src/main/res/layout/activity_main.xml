@@ -6,7 +6,7 @@
         android:id="@+id/homeRoot"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+        android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation"
         android:paddingTop="0dp">
     <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_height="match_parent"
