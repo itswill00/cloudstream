@@ -6,7 +6,7 @@
         android:id="@+id/homeRoot"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+        android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation"
         android:paddingTop="0dp">
     <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_height="match_parent"
@@ -15,9 +15,11 @@
                 android:id="@+id/nav_view"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:background="?attr/darkBackground"
+                android:background="?attr/primaryGrayBackground"
 
                 app:labelVisibilityMode="labeled"
+                app:itemTextColor="@color/item_select_color"
+                app:itemIconTint="@color/item_select_color"
 
                 app:layout_constraintLeft_toLeftOf="parent"
                 app:layout_constraintRight_toRightOf="parent"
@@ -41,7 +43,7 @@
         >
             <!--com.google.android.gms.cast.framework.media.widget.MiniControllerFragment-->
             <fragment
-                    app:customCastBackgroundColor="?attr/darkBackground"
+                    app:customCastBackgroundColor="?attr/primaryGrayBackground"
                     app:castControlButtons="@array/cast_mini_controller_control_buttons"
                     android:id="@+id/cast_mini_controller"
                     android:layout_width="match_parent"
