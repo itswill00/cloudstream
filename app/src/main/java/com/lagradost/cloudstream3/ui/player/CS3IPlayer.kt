@@ -1053,9 +1053,10 @@ class CS3IPlayer : IPlayer {
     private var eventLooperIndex = 0
     private fun torrentEventLooper(hash: String) = ioSafe {
         eventLooperIndex += 2
-        // very shitty, but should work fine
-        // release player is called once for the new link
-        val currentIndex = eventLooperIndex + 1
+        // The loop stops as soon as the index is increased, which happens when the
+        // player is released for the next link. Starting a new loop also stops the
+        // previous one, because it increases the index by two.
+        val currentIndex = eventLooperIndex
         while (eventLooperIndex <= currentIndex && eventHandler != null) {
             try {
                 val status = Torrent.get(hash)
