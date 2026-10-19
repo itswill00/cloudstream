@@ -1135,9 +1135,10 @@ class PlayerGestureHelper(private val playerView: PlayerView) {
                     val verticalAddition = diffFromLast.y * VERTICAL_MULTIPLIER / view.height.toFloat()
                     when (currentTouchAction) {
                         TouchAction.Time -> {
-                            // This simply updates UI as the seek logic happens on release
-                            // startTime is rounded to make the UI sync in a nice way.
-                            val startTime = currentTouchStartPlayerTime?.div(1000L)?.times(1000L)
+                            // This simply updates UI as the seek logic happens on release.
+                            // The same (unrounded) start time is used here and when the seek
+                            // is actually applied, so the preview matches the real target.
+                            val startTime = currentTouchStartPlayerTime
                             if (startTime != null) {
                                 calculateNewTime(startTime, startTouch, currentTouch)?.let { newMs ->
                                     val skipMs = newMs - startTime
