@@ -623,6 +623,7 @@ class CS3IPlayer : IPlayer {
                 removeListener(it)
                 playerListener = null
             }
+            LiveHelper.unregisterPlayer(this)
             stop()
             release()
         }

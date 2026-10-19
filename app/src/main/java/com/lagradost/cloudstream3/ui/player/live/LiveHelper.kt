@@ -5,6 +5,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import com.lagradost.cloudstream3.mvvm.debugWarning
+import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 
 object LiveHelper {
@@ -18,15 +19,24 @@ object LiveHelper {
         }
 
         // Prevent duplicates
-        if (liveManagers.contains(player)) {
-            return
+        synchronized(liveManagers) {
+            if (liveManagers.contains(player)) {
+                return
+            }
         }
 
         val liveManager = LiveManager(player)
+        /**
+         * The player has to be held weakly here. The map is a WeakHashMap, so a strong
+         * reference to the key from the value would keep the entry alive forever and
+         * leak the player.
+         */
+        val playerRef = WeakReference(player)
         val listener = object : Player.Listener {
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                val currentPlayer = playerRef.get() ?: return
                 val window = Timeline.Window()
-                timeline.getWindow(player.currentMediaItemIndex, window)
+                timeline.getWindow(currentPlayer.currentMediaItemIndex, window)
                 if (window.isDynamic) {
                     liveManager.submitLivestreamChunk(LivestreamChunk(window.durationMs))
                 }
@@ -39,11 +49,12 @@ object LiveHelper {
                 reason: Int
             ) {
                 super.onPositionDiscontinuity(oldPosition, newPosition, reason)
+                val currentPlayer = playerRef.get() ?: return
                 val timeAheadOfLive = liveManager.getTimeAheadOfLive(newPosition.positionMs)
 
                 // Seek back to the optimal live spot
                 if (timeAheadOfLive > 100) {
-                    player.seekTo(newPosition.positionMs - timeAheadOfLive)
+                    currentPlayer.seekTo(newPosition.positionMs - timeAheadOfLive)
                 }
             }
         }
@@ -60,12 +71,12 @@ object LiveHelper {
             return
         }
 
-        // Prevent duplicates
-        if (!liveManagers.contains(player)) {
-            return
-        }
-
         synchronized(liveManagers) {
+            // Prevent duplicates
+            if (!liveManagers.contains(player)) {
+                return
+            }
+
             liveManagers[player]?.let { (_, listener) ->
                 player.removeListener(listener)
             }
