@@ -204,7 +204,6 @@
         android:key="@string/pref_category_android_tv_key"
         android:title="@string/pref_category_android_tv">
         <SeekBarPreference
-            android:defaultValue="10"
             android:max="60"
             android:summary="@string/android_tv_interface_on_seek_settings_summary"
             android:title="@string/android_tv_interface_on_seek_settings"

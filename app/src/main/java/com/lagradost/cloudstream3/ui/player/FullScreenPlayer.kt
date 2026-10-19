@@ -1404,7 +1404,7 @@ open class FullScreenPlayer : AbstractPlayerFragment<FragmentPlayerBinding>(
                 androidTVInterfaceOnSeekTime =
                     settingsManager.getInt(
                         ctx.getString(R.string.android_tv_interface_on_seek_key),
-                        10
+                        30
                     )
                         .toLong() * 1000L
 
