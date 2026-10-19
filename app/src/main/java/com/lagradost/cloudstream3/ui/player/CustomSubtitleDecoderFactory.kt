@@ -316,7 +316,16 @@ class CustomDecoder(private val fallbackFormat: Format?) : SubtitleParser {
         }
         Log.i(TAG, "Parse subtitle, current parser: $realDecoder")
         try {
-            val inputString = getStr(data).first
+            // Only the bytes from offset up to offset + length are valid data
+            val validData = if (offset == 0 && length >= data.size) {
+                data
+            } else {
+                data.copyOfRange(
+                    minOf(offset, data.size),
+                    minOf(offset + length, data.size)
+                )
+            }
+            val inputString = getStr(validData).first
             Log.i(TAG, "Subtitle preview: ${inputString.take(30)}")
             if (inputString.isNotBlank()) {
                 var str: String = trimStr(inputString)
@@ -337,10 +346,13 @@ class CustomDecoder(private val fallbackFormat: Format?) : SubtitleParser {
                     }
                 }
                 val array = str.toByteArray()
+                // The string was decoded with the detected charset and is encoded back to
+                // UTF-8 here, so the buffer can be bigger than the original data. Parse the
+                // whole buffer, otherwise the tail of the subtitle is cut off.
                 realDecoder?.parse(
                     array,
-                    minOf(array.size, offset),
-                    minOf(array.size, length),
+                    0,
+                    array.size,
                     outputOptions,
                     customOutput
                 )
