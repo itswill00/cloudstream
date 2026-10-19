@@ -714,7 +714,9 @@ class PlayerView @JvmOverloads constructor(
     fun resize(resize: Int, showToast: Boolean) {
         // Clear all zoom state before applying the new resize mode
         gestureHelper.clearZoomState()
-        resize(PlayerResize.entries[resize], showToast)
+        // The persisted value can be out of range, e.g. if the entries were reordered
+        val mode = PlayerResize.entries.getOrNull(resize) ?: PlayerResize.Fit
+        resize(mode, showToast)
     }
 
     fun resize(resize: PlayerResize, showToast: Boolean) {
