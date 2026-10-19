@@ -580,16 +580,19 @@ open class FullScreenPlayer : AbstractPlayerFragment<FragmentPlayerBinding>(
                     subtitleOffsetInput.text = Editable.Factory.getInstance()
                         ?.newEditable((subtitleCue.startTimeMs - playerPosition).toString())
                 }.apply {
-                    submitList(subtitles)
+                    // The list is submitted asynchronously, so the active subtitle can only
+                    // be resolved once the list has been committed
+                    submitList(subtitles, Runnable {
+                        val activeSubtitle =
+                            subtitleAdapter?.getLatestActiveItem(initialSubtitlePosition) ?: 0
+                        subtitleOffsetRecyclerview.scrollToPosition(activeSubtitle)
+                    })
                 }
 
             subtitleOffsetRecyclerview.adapter = subtitleAdapter
             // Prevent flashing changes when changing items
             (subtitleOffsetRecyclerview.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations =
                 false
-
-            val firstSubtitle = subtitleAdapter.getLatestActiveItem(initialSubtitlePosition)
-            subtitleOffsetRecyclerview.scrollToPosition(firstSubtitle)
 
             val buttonChange = 100L
             val buttonChangeMore = 1000L
