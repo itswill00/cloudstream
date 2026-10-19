@@ -317,7 +317,7 @@ class CustomDecoder(private val fallbackFormat: Format?) : SubtitleParser {
         Log.i(TAG, "Parse subtitle, current parser: $realDecoder")
         try {
             val inputString = getStr(data).first
-            Log.i(TAG, "Subtitle preview: ${inputString.substring(0, 30)}")
+            Log.i(TAG, "Subtitle preview: ${inputString.take(30)}")
             if (inputString.isNotBlank()) {
                 var str: String = trimStr(inputString)
                 realDecoder = realDecoder ?: getSubtitleParser(inputString)
