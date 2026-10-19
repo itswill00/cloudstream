@@ -1768,7 +1768,7 @@ class CS3IPlayer : IPlayer {
                 .setSelectionFlags(0)
                 .build()
             when (sub.origin) {
-                SubtitleOrigin.DOWNLOADED_FILE, SubtitleOrigin.EMBEDDED_IN_VIDEO -> {
+                SubtitleOrigin.DOWNLOADED_FILE -> {
                     if (offlineSourceFactory != null) {
                         activeSubtitles.add(sub)
                         SingleSampleMediaSource.Factory(offlineSourceFactory)
@@ -1776,6 +1776,15 @@ class CS3IPlayer : IPlayer {
                     } else {
                         null
                     }
+                }
+
+                SubtitleOrigin.EMBEDDED_IN_VIDEO -> {
+                    // Embedded subtitles are part of the video file itself, so they do not
+                    // need their own media source. The url of an embedded subtitle is the
+                    // track id and not a path, so creating a source for it would add a
+                    // broken track that points to a file that does not exist.
+                    activeSubtitles.add(sub)
+                    null
                 }
 
                 SubtitleOrigin.URL -> {
