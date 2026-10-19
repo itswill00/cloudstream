@@ -155,7 +155,7 @@ object PlayerPipHelper {
                 getRemoteAction(
                     activity,
                     R.drawable.ic_baseline_play_arrow_24,
-                    R.string.pause,
+                    R.string.home_play,
                     CSPlayerEvent.Play
                 )
             )
