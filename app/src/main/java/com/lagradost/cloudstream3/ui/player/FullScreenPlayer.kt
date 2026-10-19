@@ -399,7 +399,9 @@ open class FullScreenPlayer : AbstractPlayerFragment<FragmentPlayerBinding>(
         val display = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R)
             @Suppress("DEPRECATION")
             (activity.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay
-        else activity.display!!
+        else
+            // Activity.getDisplay() is null when the activity is not attached to a display
+            activity.display ?: return
         val rotation = display.rotation
         val currentOrientation = activity.resources.configuration.orientation
         val orientation: Int
