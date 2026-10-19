@@ -296,6 +296,9 @@ class CS3IPlayer : IPlayer {
         } else {
             currentSubtitles = subtitle
             playbackPosition = 0
+            // The window index belongs to the episode it was saved for, a new episode
+            // always starts in the first window.
+            currentWindow = 0
         }
 
         startPosition?.let {
