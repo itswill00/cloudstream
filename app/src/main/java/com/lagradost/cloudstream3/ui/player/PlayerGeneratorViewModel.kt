@@ -14,7 +14,6 @@ import com.lagradost.cloudstream3.ui.player.source_priority.ProfileSettings
 import com.lagradost.cloudstream3.ui.player.source_priority.QualityDataHelper
 import com.lagradost.cloudstream3.ui.player.source_priority.QualityDataHelper.getLinkPriority
 import com.lagradost.cloudstream3.ui.result.ResultEpisode
-import com.lagradost.cloudstream3.utils.Coroutines.ioSafe
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.ExtractorLinkType
 import com.lagradost.cloudstream3.utils.videoskip.SkipAPI
@@ -25,6 +24,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentSet
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -337,13 +337,16 @@ class PlayerGeneratorViewModel : ViewModel() {
     private var currentStampJob: Job? = null
 
     fun loadStamps(duration: Long) {
-        currentStampJob = ioSafe {
-            val genState = state.generatorState ?: return@ioSafe
+        // Cancel a previous request, it would otherwise overwrite the new result
+        currentStampJob?.cancel()
+        // Use the view model scope, so the request is cancelled when the view model is cleared
+        currentStampJob = viewModelScope.launchSafe(Dispatchers.IO) {
+            val genState = state.generatorState ?: return@launchSafe
             val meta = genState.meta
             val page = genState.response
             val id = genState.id
             if (page == null || meta !is ResultEpisode) {
-                return@ioSafe
+                return@launchSafe
             }
             val stamps = SkipAPI.videoStamps(
                 page,
