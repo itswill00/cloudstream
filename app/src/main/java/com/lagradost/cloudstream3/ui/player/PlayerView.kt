@@ -461,11 +461,27 @@ class PlayerView @JvmOverloads constructor(
         player.onResume(ctx)
     }
 
+    /**
+     * Unregisters the PiP media control receiver if it is currently registered.
+     *
+     * The receiver is registered with the activity, so it has to be unregistered explicitly.
+     * Otherwise the activity (and this whole view hierarchy) is leaked when the player is
+     * released while still in picture-in-picture mode.
+     */
+    private fun unregisterPipReceiver(activity: Activity?) {
+        val receiver = pipReceiver ?: return
+        pipReceiver = null
+        // Prevents java.lang.IllegalArgumentException: Receiver not registered
+        safe { activity?.unregisterReceiver(receiver) }
+    }
+
     /** Releases all player resources. */
     fun release() {
         player.release()
         player.releaseCallbacks()
         player = CS3IPlayer()
+
+        unregisterPipReceiver(context as? Activity)
 
         // keyEventListener is deregistered in onPause so that the incoming player's
         // onResume can register its own listener without racing against release().
@@ -498,6 +514,8 @@ class PlayerView @JvmOverloads constructor(
             if (isInPictureInPictureMode) {
                 // Hide the full-screen UI (controls, etc.) while in picture-in-picture mode.
                 piphide?.isVisible = false
+                // Never register twice, otherwise the previous receiver would be leaked
+                unregisterPipReceiver(activity)
                 pipReceiver = object : BroadcastReceiver() {
                     override fun onReceive(context: Context, intent: Intent) {
                         if (ACTION_MEDIA_CONTROL != intent.action) return
@@ -521,10 +539,7 @@ class PlayerView @JvmOverloads constructor(
                 // Restore the full-screen UI.
                 piphide?.isVisible = true
                 callbacks?.exitedPipMode()
-                pipReceiver?.let {
-                    // Prevents java.lang.IllegalArgumentException: Receiver not registered
-                    safe { activity?.unregisterReceiver(it) }
-                }
+                unregisterPipReceiver(activity)
                 activity?.hideSystemUI()
                 hideKeyboard(this)
             }
