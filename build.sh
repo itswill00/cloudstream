@@ -1,0 +1,263 @@
+#!/usr/bin/env bash
+# =============================================================================
+#  build.sh - Smart build script for CloudStream (itswill00/cloudstream)
+# =============================================================================
+#  Usage:
+#    ./build.sh                     # default: prerelease debug APK
+#    ./build.sh debug               # prerelease debug APK
+#    ./build.sh release             # prerelease release APK (unsigned w/o keystore)
+#    ./build.sh all                 # debug + release
+#    ./build.sh desktop             # Kotlin Multiplatform desktop app
+#    ./build.sh <gradle-task...>    # arbitrary gradle task
+#
+#  Options:
+#    --install        install missing JDK / Android SDK components first
+#    --clean          run `clean` first
+#    --offline        gradle --offline
+#    --no-daemon      gradle --no-daemon
+#    --cc             enable gradle configuration cache (default: disabled)
+#    --jobs N         set gradle worker parallelism
+#    -h|--help        show help
+#
+#  Env overrides:
+#    REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR
+# =============================================================================
+set -uo pipefail
+
+# ------------------------------ config ---------------------------------------
+REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/root/android-sdk}}"
+JDK_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
+LOG_DIR="${BUILD_LOG_DIR:-/root/build-logs}"
+API_LEVEL=37
+BUILD_TOOLS="37.0.0"
+
+# ------------------------------ helpers --------------------------------------
+c_reset=$'\033[0m'; c_red=$'\033[31m'; c_grn=$'\033[32m'; c_ylw=$'\033[33m'
+c_blu=$'\033[34m'; c_dim=$'\033[2m'; c_bold=$'\033[1m'
+if [ ! -t 1 ]; then c_reset=; c_red=; c_grn=; c_ylw=; c_blu=; c_dim=; c_bold=; fi
+
+usage() {
+cat <<'USAGE'
+=============================================================================
+ build.sh - Smart build script for CloudStream (itswill00/cloudstream)
+=============================================================================
+ Usage:
+   ./build.sh                     default: prerelease debug APK
+   ./build.sh debug               prerelease debug APK
+   ./build.sh release             prerelease release APK
+   ./build.sh stable              stable release APK
+   ./build.sh all                 debug + release
+   ./build.sh desktop             Kotlin Multiplatform desktop app
+   ./build.sh <gradle-task...>    arbitrary gradle task
+
+ Options:
+   --install        install missing JDK / Android SDK components first
+   --clean          run `clean` first
+   --offline        gradle --offline
+   --no-daemon      gradle --no-daemon
+   --cc             enable gradle configuration cache
+   --jobs N         set gradle worker parallelism
+   -h|--help        show this help
+
+ Env overrides:
+   REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR
+=============================================================================
+USAGE
+}
+
+say()  { printf '%s[build]%s %s\n' "$c_blu" "$c_reset" "$*"; }
+ok()   { printf '%s[ ok ]%s %s\n' "$c_grn" "$c_reset" "$*"; }
+warn() { printf '%s[warn]%s %s\n' "$c_ylw" "$c_reset" "$*"; }
+die()  { printf '%s[fail]%s %s\n' "$c_red" "$c_reset" "$*"; exit 1; }
+
+# --------------------------- arg parsing ------------------------------------
+TASKS=(); DO_INSTALL=0; DO_CLEAN=0; OFFLINE=0; NO_DAEMON=0; USE_CC=0; JOBS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --install)   DO_INSTALL=1 ;;
+    --clean)     DO_CLEAN=1 ;;
+    --offline)   OFFLINE=1 ;;
+    --no-daemon) NO_DAEMON=1 ;;
+    --cc)        USE_CC=1 ;;
+    --jobs)      JOBS="${2:-}"; shift ;;
+    -h|--help)   usage; exit 0 ;;
+    *)           TASKS+=("$1") ;;
+  esac
+  shift
+done
+
+# default task set
+if [ ${#TASKS[@]} -eq 0 ]; then TASKS=("debug"); fi
+resolve_target() {
+  case "$1" in
+    debug)   echo "assemblePrereleaseDebug" ;;
+    release) echo "assemblePrereleaseRelease" ;;
+    stable)  echo "assembleStableRelease" ;;
+    all)     echo "assemblePrereleaseDebug assemblePrereleaseRelease" ;;
+    desktop) echo ":desktopApp:build" ;;
+    *)       echo "$1" ;;
+  esac
+}
+GRADLE_TASKS=()
+for t in "${TASKS[@]}"; do
+  for one in $(resolve_target "$t"); do GRADLE_TASKS+=("$one"); done
+done
+
+# ------------------------------ preflight ------------------------------------
+preflight() {
+  say "repo      : $REPO_DIR"
+  say "sdk       : $SDK_DIR"
+  say "java home : $JDK_HOME"
+  [ -d "$REPO_DIR" ] || die "repo dir not found: $REPO_DIR"
+  [ -f "$REPO_DIR/gradlew" ] || die "gradlew not found in $REPO_DIR (not a gradle project?)"
+
+  # --- java ---
+  local need_jdk=0
+  [ -x "$JDK_HOME/bin/java" ] || need_jdk=1
+  if [ $need_jdk -eq 1 ]; then
+    for c in /usr/lib/jvm/java-17-openjdk-amd64 /usr/lib/jvm/default-java /usr/lib/jvm/*17*; do
+      [ -x "$c/bin/java" ] && { JDK_HOME="$c"; need_jdk=0; break; }
+    done
+  fi
+  if [ $need_jdk -eq 1 ] && [ $DO_INSTALL -eq 1 ]; then
+    say "installing openjdk-17-jdk-headless ..."
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openjdk-17-jdk-headless unzip \
+      >/dev/null 2>&1 || warn "apt install failed, continuing"
+    JDK_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+  fi
+  [ -x "$JDK_HOME/bin/java" ] || die "JDK 17 not found. Jalankan dengan --install"
+  local jv; jv="$("$JDK_HOME/bin/java" -version 2>&1 | head -1)"
+  ok "java      : $jv"
+  case "$jv" in
+    *\"17.*) ;;
+    *) warn "java is not 17 ($jv) - AGP 9 biasanya butuh JDK 17+" ;;
+  esac
+
+  # --- android sdk ---
+  if [ ! -d "$SDK_DIR" ]; then
+    if [ $DO_INSTALL -eq 1 ]; then
+      say "installing android cmdline-tools ..."
+      mkdir -p "$SDK_DIR/cmdline-tools"
+      local zip="/tmp/opencode/cmdline-tools.zip"
+      mkdir -p /tmp/opencode
+      curl -sSL -o "$zip" "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip" || die "download cmdline-tools failed"
+      unzip -q -o "$zip" -d "$SDK_DIR/cmdline-tools" || die "unzip cmdline-tools failed"
+      rm -rf "$SDK_DIR/cmdline-tools/latest"
+      mv "$SDK_DIR/cmdline-tools/cmdline-tools" "$SDK_DIR/cmdline-tools/latest"
+    else
+      die "Android SDK tidak ada di $SDK_DIR. Jalankan dengan --install"
+    fi
+  fi
+  [ -x "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" ] || die "sdkmanager tidak ditemukan di $SDK_DIR"
+  export ANDROID_HOME="$SDK_DIR" ANDROID_SDK_ROOT="$SDK_DIR" JAVA_HOME="$JDK_HOME"
+  export PATH="$JDK_HOME/bin:$SDK_DIR/platform-tools:$SDK_DIR/cmdline-tools/latest/bin:$PATH"
+
+  # licenses
+  yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1
+
+  # platform + build-tools
+  local have_platform=0
+  ls -d "$SDK_DIR/platforms/android-$API_LEVEL"* >/dev/null 2>&1 && have_platform=1
+  if [ $have_platform -eq 0 ] && [ $DO_INSTALL -eq 1 ]; then
+    say "installing platform android-$API_LEVEL + build-tools $BUILD_TOOLS ..."
+    "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "platform-tools" \
+      "platforms;android-$API_LEVEL.0" "build-tools;$BUILD_TOOLS" >/dev/null 2>&1 \
+      || warn "sdkmanager install partially failed"
+    ls -d "$SDK_DIR/platforms/android-$API_LEVEL"* >/dev/null 2>&1 && have_platform=1
+  fi
+  if [ $have_platform -eq 1 ]; then
+    ok "platform  : android-$API_LEVEL installed"
+  else
+    warn "platform android-$API_LEVEL belum ada (butuh --install)"
+  fi
+
+  # local.properties
+  local lp="$REPO_DIR/local.properties"
+  if ! grep -q '^sdk.dir=' "$lp" 2>/dev/null; then
+    say "menulis local.properties (sdk.dir=$SDK_DIR)"
+    printf 'sdk.dir=%s\n' "$SDK_DIR" > "$lp"
+  fi
+
+  # memory hints
+  local mem_gb; mem_gb=$(free -g 2>/dev/null | awk '/^Mem:/{print $2}')
+  say "ram       : ${mem_gb:-?} GB total"
+  mkdir -p "$LOG_DIR"
+}
+
+# ------------------------------ run gradle -----------------------------------
+run_gradle() {
+  local log="$1"; shift
+  local -a args=(--console=plain --stacktrace -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8")
+  [ $OFFLINE -eq 1 ]   && args+=(--offline)
+  [ $NO_DAEMON -eq 1 ] && args+=(--no-daemon)
+  [ $USE_CC -eq 1 ]    && args+=(--configuration-cache)
+  [ -n "$JOBS" ]       && args+=(--max-workers="$JOBS")
+  [ $DO_CLEAN -eq 1 ]  && args+=(clean)
+
+  say "gradle    : ./gradlew ${args[*]} $*"
+  printf '\n%s=== build start %s ===%s\n' "$c_dim" "$(date '+%F %T')" "$c_reset" >> "$log"
+
+  # stream output live (unbuffered) ke terminal + file
+  set -o pipefail
+  stdbuf -oL -eL "$REPO_DIR/gradlew" "${args[@]}" "$@" 2>&1 | tee -a "$log"
+  return "${PIPESTATUS[0]}"
+}
+
+# ------------------------------ summary -------------------------------------
+summary() {
+  local log="$1"
+  echo
+  say "artifacts:"
+  local found=0
+  while IFS= read -r apk; do
+    found=1
+    local sz; sz=$(du -h "$apk" | cut -f1)
+    local sha; sha=$(sha256sum "$apk" | cut -c1-16)
+    local ver=""
+    if [ -x "$SDK_DIR/build-tools/$BUILD_TOOLS/aapt" ]; then
+      ver=$("$SDK_DIR/build-tools/$BUILD_TOOLS/aapt" dump badging "$apk" 2>/dev/null \
+            | grep -m1 "package: name" | sed 's/.*versionName=\([^ ]*\).*/\1/')
+    fi
+    printf '  %s%-70s%s %s%s%s\n' "$c_bold" "${apk#"$REPO_DIR"/}" "$c_reset" "$c_ylw" "$sz" "$c_reset"
+    [ -n "$ver" ] && printf '    version=%s  sha256=%s…\n' "$ver" "$sha"
+  done < <(find "$REPO_DIR/app/build/outputs/apk" -name '*.apk' 2>/dev/null | sort)
+  [ $found -eq 0 ] && say "(belum ada APK)"
+
+  say "logs      : $log"
+}
+
+on_error() {
+  local log="$1"
+  echo
+  warn "build GAGAL - ringkasan error:"
+  grep -n -E "^(FAILURE|\* What went wrong|Caused by|Execution failed|> )" "$log" 2>/dev/null | tail -25 | sed 's/^/    /'
+  warn "cek log lengkap: $log"
+}
+
+# ------------------------------ main -----------------------------------------
+main() {
+  preflight
+  local stamp; stamp=$(date '+%Y%m%d-%H%M%S')
+  local log="$LOG_DIR/build-$stamp.log"
+
+  say "tasks     : ${GRADLE_TASKS[*]}"
+  say "log file  : $log"
+  echo
+
+  run_gradle "$log" "${GRADLE_TASKS[@]}"
+  local rc=$?
+
+  echo
+  if [ $rc -eq 0 ]; then
+    ok "BUILD SUKSES (exit 0) - ${#GRADLE_TASKS[@]} task(s), $(date '+%T')"
+    summary "$log"
+    return 0
+  else
+    printf '%s%sBUILD GAGAL (exit %s)%s\n' "$c_red" "$c_bold" "$rc" "$c_reset"
+    on_error "$log"
+    return $rc
+  fi
+}
+
+main "$@"
