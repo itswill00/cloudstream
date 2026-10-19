@@ -1621,7 +1621,10 @@ open class FullScreenPlayer : AbstractPlayerFragment<FragmentPlayerBinding>(
     }
 
     private fun toggleEpisodesOverlay(show: Boolean) {
-        if (show && !isShowingEpisodeOverlay) {
+        if (show) {
+            // Already showing, nothing to do. Closing it here would make the overlay
+            // flip-flop when the episodes button regains focus while the overlay is open.
+            if (isShowingEpisodeOverlay) return
             previousPlayStatus = player.getIsPlaying()
             player.handleEvent(CSPlayerEvent.Pause)
             showEpisodesOverlay()
