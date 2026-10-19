@@ -301,7 +301,7 @@ class CustomDecoder(private val fallbackFormat: Format?) : SubtitleParser {
                 SubtitleCue(
                     newCue.startTimeUs / 1000,
                     newCue.durationUs / 1000,
-                    newCue.cues.map { it.text.toString() })
+                    newCue.cues.map { it.text?.toString().orEmpty() })
             )
 
             // offset timing for the final
