@@ -610,6 +610,9 @@ class CS3IPlayer : IPlayer {
 
         currentTextRenderer = null
         currentSubtitleDecoder = null
+        // The selected tracks belong to the player that is released, they must not be
+        // reported for the next video.
+        playerSelectedSubtitleTracks = emptyList()
 
         exoPlayer?.apply {
             playWhenReady = false
