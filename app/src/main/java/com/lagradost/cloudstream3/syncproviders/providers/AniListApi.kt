@@ -56,7 +56,10 @@ class AniListApi : SyncAPI() {
             accessToken = sanitizer["access_token"]
                 ?: throw ErrorLoadingException("No access token"),
             // refreshToken = sanitizer["refresh_token"],
-            accessTokenLifetime = APIHolder.unixTime + sanitizer["expires_in"]!!.toLong(),
+            // The expiry is optional, an AniList token is long lived. Without
+            // it the token is treated as one that never expires.
+            accessTokenLifetime = sanitizer["expires_in"]?.toLongOrNull()
+                ?.let { APIHolder.unixTime + it },
         )
         return token
     }
