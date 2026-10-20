@@ -104,6 +104,16 @@ that points at the commit the APK was built from, an annotated tag would report
 the tag object instead of the commit and the updater would offer an update
 forever.
 
+The upstream CI moves that tag on every push, the workflows cannot run in this
+fork, so it has to be updated by hand whenever the pre-release is published:
+
+```bash
+git tag -f pre-release HEAD
+git push --force origin refs/tags/pre-release:refs/tags/pre-release
+gh release upload pre-release app/build/outputs/apk/prerelease/release/app-prerelease-release.apk \
+    --clobber
+```
+
 ## Signing key
 
 | | |
