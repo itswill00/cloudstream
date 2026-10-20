@@ -88,6 +88,14 @@
     <attr name="glassDialogBackground" format="reference" />
     <attr name="glassSheetBackground" format="reference" />
     <attr name="glassSheetTint" format="color" />
+    <!-- The background of the whole app, the Liquid Glass theme has soft
+         colored blobs in it -->
+    <attr name="glassWindowBackground" format="reference" />
+    <!-- The color of the system navigation bar, the glass theme makes it
+         transparent so that the system can blur it -->
+    <attr name="glassNavigationBarColor" format="color" />
+    <!-- The panel behind the controls of the player -->
+    <attr name="glassPlayerBarBackground" format="reference" />
     <!-- True when the Liquid Glass theme is active -->
     <attr name="isGlassTheme" format="boolean" />
 </resources>

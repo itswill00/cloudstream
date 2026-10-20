@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The background of the app in the Liquid Glass theme. The soft colored
+     blobs are what the glass reflects, without them the glass does not look
+     like anything. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <color android:color="@color/LiquidGlassBitDarkerGrayBackground" />
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:centerX="0.15"
+                android:centerY="0.0"
+                android:endColor="#003D50FA"
+                android:gradientRadius="85%p"
+                android:startColor="#3D3D50FA"
+                android:type="radial" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:centerX="0.9"
+                android:centerY="0.1"
+                android:endColor="#0064FFDA"
+                android:gradientRadius="60%p"
+                android:startColor="#2664FFDA"
+                android:type="radial" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:centerX="0.5"
+                android:centerY="1.0"
+                android:endColor="#006C5CFF"
+                android:gradientRadius="70%p"
+                android:startColor="#1A6C5CFF"
+                android:type="radial" />
+        </shape>
+    </item>
+</layer-list>
