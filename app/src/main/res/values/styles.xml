@@ -78,6 +78,10 @@
         <item name="glassBottomBackground">?attr/primaryGrayBackground</item>
         <item name="glassSideBackground">?attr/primaryGrayBackground</item>
         <item name="glassHeaderBackground">?attr/primaryBlackBackground</item>
+        <item name="glassDialogBackground">@drawable/dialog__window_background</item>
+        <item name="glassSheetBackground">@drawable/rounded_dialog</item>
+        <item name="glassSheetTint">?attr/primaryBlackBackground</item>
+        <item name="isGlassTheme">false</item>
     </style>
 
     <style name="AppThemeTvOverlay">
@@ -258,6 +262,10 @@
         <item name="glassBottomBackground">@drawable/liquid_glass_surface</item>
         <item name="glassSideBackground">@drawable/liquid_glass_surface_side</item>
         <item name="glassHeaderBackground">@drawable/liquid_glass_header</item>
+        <item name="glassDialogBackground">@drawable/liquid_glass_dialog</item>
+        <item name="glassSheetBackground">@drawable/liquid_glass_sheet</item>
+        <item name="glassSheetTint">@android:color/transparent</item>
+        <item name="isGlassTheme">true</item>
     </style>
 
     <style name="OverlayPrimaryColorNormal">
@@ -514,8 +522,8 @@
         <item name="behavior_skipCollapsed">true</item>
         <item name="shapeAppearance">@null</item>
         <item name="shapeAppearanceOverlay">@null</item>
-        <item name="backgroundTint">?attr/primaryBlackBackground</item>
-        <item name="android:background">@drawable/rounded_dialog</item>
+        <item name="backgroundTint">?attr/glassSheetTint</item>
+        <item name="android:background">?attr/glassSheetBackground</item>
         <item name="behavior_peekHeight">512dp</item>
     </style>
 
@@ -524,7 +532,7 @@
     <style name="Theme.AlertDialog" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
         <item name="android:windowMinWidthMajor">@dimen/abc_dialog_min_width_major</item>
         <item name="android:windowMinWidthMinor">@dimen/abc_dialog_min_width_minor</item>
-        <item name="android:windowBackground">@drawable/dialog__window_background</item>
+        <item name="android:windowBackground">?attr/glassDialogBackground</item>
         <item name="textAllCaps">false</item>
         <item name="android:textColorPrimary">?attr/grayTextColor</item>
 
@@ -598,7 +606,7 @@
 
         <item name="android:windowMinWidthMajor">@dimen/abc_dialog_min_width_major</item>
         <item name="android:windowMinWidthMinor">@dimen/abc_dialog_min_width_minor</item>
-        <item name="android:windowBackground">@drawable/dialog__window_background</item>
+        <item name="android:windowBackground">?attr/glassDialogBackground</item>
     </style>
 
     <style name="AlertDialogCustomTransparent" parent="Theme.AppCompat.Dialog.Alert">

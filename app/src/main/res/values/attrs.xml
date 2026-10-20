@@ -84,4 +84,10 @@
     <attr name="glassSideBackground" format="reference" />
     <!-- The background of the header at the top of the home screen -->
     <attr name="glassHeaderBackground" format="reference" />
+    <!-- The window of a dialog and the surface of a bottom sheet -->
+    <attr name="glassDialogBackground" format="reference" />
+    <attr name="glassSheetBackground" format="reference" />
+    <attr name="glassSheetTint" format="color" />
+    <!-- True when the Liquid Glass theme is active -->
+    <attr name="isGlassTheme" format="boolean" />
 </resources>
