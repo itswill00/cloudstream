@@ -2,6 +2,9 @@
 # =============================================================================
 #  build.sh - Smart build script for CloudStream (itswill00/cloudstream)
 # =============================================================================
+#  The app is built for arm64 only, that is the architecture of the devices
+#  that are used. The APK is 45 MB instead of 73 MB.
+# =============================================================================
 #  Usage:
 #    ./build.sh                     # default: prerelease debug APK
 #    ./build.sh debug               # prerelease debug APK
@@ -20,9 +23,6 @@
 #    --cc             enable gradle configuration cache (default: disabled)
 #    --jobs N         set gradle worker parallelism
 #    --flavor <f>     flavour to build: prerelease or stable (default: prerelease)
-#    --abi <abi>      build for a single architecture, arm64-v8a by default.
-#                     Use "all" for every architecture, that makes the APK
-#                     a lot bigger.
 #    --no-sign        do not load the signing key, the APK stays unsigned
 #    --no-build       do not build, only do what --send asks for
 #    --send           upload the APK to the test group on Telegram
@@ -55,6 +55,8 @@ cat <<'USAGE'
 =============================================================================
  build.sh - Smart build script for CloudStream (itswill00/cloudstream)
 =============================================================================
+ The app is built for arm64 only, the APK is 45 MB instead of 73 MB.
+=============================================================================
  Usage:
    ./build.sh                     default: prerelease debug APK
    ./build.sh debug               prerelease debug APK
@@ -73,8 +75,6 @@ cat <<'USAGE'
    --cc             enable gradle configuration cache
    --jobs N         set gradle worker parallelism
    --flavor <f>     flavour to build: prerelease or stable (default: prerelease)
-   --abi <abi>      build for a single architecture, arm64-v8a by default,
-                    "all" builds every architecture
    --no-sign        do not load the signing key, the APK stays unsigned
    --no-build       do not build, only upload the last build
    --send           upload the APK to the test group on Telegram
@@ -98,9 +98,6 @@ die()  { printf '%s[fail]%s %s\n' "$c_red" "$c_reset" "$*"; exit 1; }
 # --------------------------- arg parsing ------------------------------------
 TASKS=(); DO_INSTALL=0; DO_CLEAN=0; OFFLINE=0; NO_DAEMON=0; USE_CC=0; JOBS=""
 FLAVOR="prerelease"; NO_SIGN=0; DO_BUILD=1; DO_SEND=0
-# The build is for arm64, that is the architecture of the devices that are
-# used. It makes the build faster and the APK a lot smaller.
-ABI="${ABI:-arm64-v8a}"
 EXTRA_MESSAGE=""; TELEGRAM_CONFIG="${TELEGRAM_CONFIG:-/root/keys/telegram-bot.env}"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -111,7 +108,6 @@ while [ $# -gt 0 ]; do
     --cc)        USE_CC=1 ;;
     --jobs)      JOBS="${2:-}"; shift ;;
     --flavor)    FLAVOR="${2:-}"; shift ;;
-    --abi)       ABI="${2:-}"; shift ;;
     --no-sign)   NO_SIGN=1 ;;
     --no-build)  DO_BUILD=0 ;;
     --send)      DO_SEND=1 ;;
@@ -126,15 +122,6 @@ done
 case "$FLAVOR" in
   prerelease|stable) ;;
   *) die "unknown flavor: $FLAVOR (use prerelease or stable)" ;;
-esac
-
-# The architecture is written in a few ways, they all mean the same thing
-case "$ABI" in
-  all|universal) ABI="all" ;;
-  arm64|arm64-v8a|aarch64) ABI="arm64-v8a" ;;
-  armv7|arm|armeabi|armeabi-v7a) ABI="armeabi-v7a" ;;
-  x86_64|x64) ABI="x86_64" ;;
-  x86) ABI="x86" ;;
 esac
 
 # default task set
@@ -270,7 +257,6 @@ run_gradle() {
   [ $USE_CC -eq 1 ]    && args+=(--configuration-cache)
   [ -n "$JOBS" ]       && args+=(--max-workers="$JOBS")
   [ $DO_CLEAN -eq 1 ]  && args+=(clean)
-  [ -n "$ABI" ]        && args+=("-PtargetAbi=$ABI")
 
   say "gradle    : ./gradlew ${args[*]} $*"
   printf '\n%s=== build start %s ===%s\n' "$c_dim" "$(date '+%F %T')" "$c_reset" >> "$log"
@@ -334,7 +320,7 @@ telegram_caption() {
   local caption="CloudStream test build
 commit : $commit ($branch)
 flavor : $FLAVOR
-abi    : ${ABI:-all}
+abi    : arm64-v8a
 size   : $(awk -v s="$size" 'BEGIN{printf "%.1f MB", s/1048576}')
 
 $subject"
@@ -409,7 +395,7 @@ main() {
 
   say "tasks     : ${GRADLE_TASKS[*]}"
   say "flavor    : $FLAVOR"
-  [ -n "$ABI" ] && say "abi       : $ABI"
+  say "abi       : arm64-v8a"
   say "log file  : $log"
   echo
 

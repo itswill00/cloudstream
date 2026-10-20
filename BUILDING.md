@@ -60,7 +60,6 @@ Flags:
 | `--cc` | Enable the Gradle configuration cache. |
 | `--jobs N` | Limit Gradle worker parallelism (`--max-workers`). |
 | `--flavor <f>` | Flavour to build, `prerelease` or `stable` (default `prerelease`). |
-| `--abi <abi>` | Architecture of the build, `arm64-v8a` by default. Use `all` for every architecture, that makes the APK a lot bigger. |
 | `--no-sign` | Do not load the signing key, the APK stays unsigned. |
 | `--no-build` | Do not build, only do what `--send` asks for. |
 | `--send` | Upload the APK to the test group on Telegram. |
@@ -75,21 +74,23 @@ On success it lists the produced APKs with size, version name and SHA-256.
 Environment overrides: `REPO_DIR`, `ANDROID_HOME` / `ANDROID_SDK_ROOT`,
 `JAVA_HOME`, `BUILD_LOG_DIR`, `KEYS_ENV_FILE`, `TELEGRAM_CONFIG`.
 
-### A smaller APK for a test device
+### arm64 only
+
+The app is built for arm64 only, that is the architecture of the devices that
+are used. It is set in `app/build.gradle.kts` (`ndk { abiFilters += "arm64-v8a" }`),
+so it does not matter if the build runs with `build.sh`, with the Gradle
+wrapper or in the IDE.
 
 An APK with every architecture is around 73 MB, a build for arm64 is around
-45 MB. The Telegram API refuses anything above 50 MB, so a test build is
-always limited to one architecture. `build.sh` does that by default, arm64 is
-the architecture of the devices that are used:
+45 MB. The Telegram API refuses anything above 50 MB, so a build for arm64 is
+also what makes it possible to send a test build to a device.
 
 ```bash
-./build.sh release --send                    # arm64-v8a, the default
-./build.sh release --abi armeabi-v7a --send  # older 32 bit devices
-./build.sh release --abi all                 # every architecture, 73 MB
+./build.sh release --send   # arm64-v8a, 45 MB
 ```
 
-`build.sh` does this for you and uploads the APK to the test group with
-`--send`, see [RELEASING.md](RELEASING.md).
+`build.sh` uploads the APK to the test group with `--send`, see
+[RELEASING.md](RELEASING.md).
 
 ## Building on the server
 

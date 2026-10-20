@@ -210,18 +210,15 @@ android {
         buildConfigField("String", "UPDATE_REPO_NAME", "\"$updateRepoName\"")
 
         /**
-         * Limit the architectures of the build, e.g. -PtargetAbi=armeabi-v7a.
-         * A single architecture makes the APK a lot smaller, which is needed to
-         * send it to a test device.
+         * The app is built for arm64 only, that is the architecture of the
+         * devices that are used.
          *
-         * The build is for arm64, that is the architecture of the devices that
-         * are used. Use -PtargetAbi=all for every architecture.
+         * A single architecture makes the APK a lot smaller (45 MB instead of
+         * 73 MB), that is needed to send it to a test device and it makes the
+         * build faster.
          */
-        val targetAbi = (project.findProperty("targetAbi") as String?) ?: "arm64-v8a"
-        if (targetAbi.isNotBlank() && targetAbi != "all") {
-            ndk {
-                abiFilters += targetAbi
-            }
+        ndk {
+            abiFilters += "arm64-v8a"
         }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

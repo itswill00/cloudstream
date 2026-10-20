@@ -9,12 +9,12 @@ Telegram:
 ```bash
 ./build.sh release --send                        # build and send
 ./build.sh release --send --message "fixed X"    # with a note
-./build.sh release --abi armeabi-v7a --send      # for an older device
 ./build.sh release --send --no-build             # send the last build
 ```
 
-The build is limited to arm64, that keeps the APK below the 50 MB upload limit
-of the Telegram API. If it is still too big, the script splits it into parts.
+The build is for arm64 only, that keeps the APK at around 45 MB, below the
+50 MB upload limit of the Telegram API. If it is still too big, the script
+splits it into parts.
 
 The bot token and the chat id are read from a file outside of the repository:
 
