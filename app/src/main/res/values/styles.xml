@@ -255,7 +255,9 @@
         <item name="primaryGrayBackground">@color/LiquidGlassPrimaryGrayBackground</item>
         <item name="primaryBlackBackground">@color/LiquidGlassBitDarkerGrayBackground</item>
         <item name="iconGrayBackground">@color/LiquidGlassGrayBackground</item>
-        <item name="boxItemBackground">@color/LiquidGlassItemBackgroundGlass</item>
+        <!-- The content is not glass, the items keep a plain background. Only
+             the controls and the navigation are glass. -->
+        <item name="boxItemBackground">@color/LiquidGlassItemBackground</item>
         <item name="textColor">@color/LiquidGlassTextColor</item>
         <item name="grayTextColor">@color/LiquidGlassGrayTextColor</item>
         <item name="iconColor">@color/LiquidGlassIconColor</item>
