@@ -3,14 +3,14 @@
 ## 0. Test the fix before releasing it
 
 Every change should be tested on a real device before a release is tagged. The
-`tools/send-test-apk.sh` script builds the app and uploads the APK to the test
-group on Telegram:
+`build.sh` script builds the app and uploads the APK to the test group on
+Telegram:
 
 ```bash
-./tools/send-test-apk.sh                          # build and send
-./tools/send-test-apk.sh --message "fixed X"      # with a note
-./tools/send-test-apk.sh --abi armeabi-v7a        # for an older device
-./tools/send-test-apk.sh --no-build               # send the last build
+./build.sh release --abi arm64-v8a --send              # build and send
+./build.sh release --abi arm64-v8a --send --message "fixed X"   # with a note
+./build.sh release --abi armeabi-v7a --send            # for an older device
+./build.sh release --abi arm64-v8a --send --no-build   # send the last build
 ```
 
 The build is limited to a single architecture, that keeps the APK below the
@@ -52,20 +52,13 @@ git commit -s -m "Bump to 4.8.1"
 ## 2. Build
 
 ```bash
-source /root/keys/env.sh          # signing key and password
-./gradlew assemblePrereleaseRelease
+./build.sh release
 ```
 
 The output is `app/build/outputs/apk/prerelease/release/app-prerelease-release.apk`.
-Without the environment variables the build still works, but the APK is unsigned
-and cannot be installed.
-
-The build helper of this repository does the same and keeps the logs:
-
-```bash
-source /root/keys/env.sh
-./build.sh release
-```
+The script loads the signing key from `KEYS_ENV_FILE` (`/root/keys/env.sh`), so
+it does not have to be sourced by hand. Without the key the build still works,
+but the APK is unsigned and cannot be installed.
 
 ## 3. Tag
 

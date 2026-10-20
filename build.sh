@@ -8,6 +8,7 @@
 #    ./build.sh release             # prerelease release APK
 #    ./build.sh stable              # stable release APK
 #    ./build.sh all                 # debug + release
+#    ./build.sh check               # lint, unit tests and ABI check
 #    ./build.sh desktop             # Kotlin Multiplatform desktop app
 #    ./build.sh <gradle-task...>    # arbitrary gradle task
 #
@@ -23,11 +24,16 @@
 #                     The APK is a lot smaller, that is needed to send it to a
 #                     test device.
 #    --no-sign        do not load the signing key, the APK stays unsigned
+#    --no-build       do not build, only do what --send asks for
+#    --send           upload the APK to the test group on Telegram
+#    --message <text> extra text for the caption of the upload
+#    --config <file>  file with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
 #    -h|--help        show help
 #
 #  Env overrides:
 #    REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR,
-#    KEYS_ENV_FILE (file with SIGNING_KEY_ALIAS and the passwords)
+#    KEYS_ENV_FILE (file with SIGNING_KEY_ALIAS and the passwords),
+#    TELEGRAM_CONFIG (file with the bot token and the chat id)
 # =============================================================================
 set -uo pipefail
 
@@ -55,6 +61,7 @@ cat <<'USAGE'
    ./build.sh release             prerelease release APK
    ./build.sh stable              stable release APK
    ./build.sh all                 debug + release
+   ./build.sh check               lint, unit tests and ABI check
    ./build.sh desktop             Kotlin Multiplatform desktop app
    ./build.sh <gradle-task...>    arbitrary gradle task
 
@@ -68,11 +75,16 @@ cat <<'USAGE'
    --flavor <f>     flavour to build: prerelease or stable (default: prerelease)
    --abi <abi>      build for a single architecture, e.g. arm64-v8a
    --no-sign        do not load the signing key, the APK stays unsigned
+   --no-build       do not build, only upload the last build
+   --send           upload the APK to the test group on Telegram
+   --message <text> extra text for the caption of the upload
+   --config <file>  file with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
    -h|--help        show this help
 
  Env overrides:
    REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR,
-   KEYS_ENV_FILE (file with SIGNING_KEY_ALIAS and the passwords)
+   KEYS_ENV_FILE (file with SIGNING_KEY_ALIAS and the passwords),
+   TELEGRAM_CONFIG (file with the bot token and the chat id)
 =============================================================================
 USAGE
 }
@@ -84,7 +96,8 @@ die()  { printf '%s[fail]%s %s\n' "$c_red" "$c_reset" "$*"; exit 1; }
 
 # --------------------------- arg parsing ------------------------------------
 TASKS=(); DO_INSTALL=0; DO_CLEAN=0; OFFLINE=0; NO_DAEMON=0; USE_CC=0; JOBS=""
-FLAVOR="prerelease"; ABI=""; NO_SIGN=0
+FLAVOR="prerelease"; ABI=""; NO_SIGN=0; DO_BUILD=1; DO_SEND=0
+EXTRA_MESSAGE=""; TELEGRAM_CONFIG="${TELEGRAM_CONFIG:-/root/keys/telegram-bot.env}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --install)   DO_INSTALL=1 ;;
@@ -96,6 +109,10 @@ while [ $# -gt 0 ]; do
     --flavor)    FLAVOR="${2:-}"; shift ;;
     --abi)       ABI="${2:-}"; shift ;;
     --no-sign)   NO_SIGN=1 ;;
+    --no-build)  DO_BUILD=0 ;;
+    --send)      DO_SEND=1 ;;
+    --message)   EXTRA_MESSAGE="${2:-}"; shift ;;
+    --config)    TELEGRAM_CONFIG="$2"; shift ;;
     -h|--help)   usage; exit 0 ;;
     *)           TASKS+=("$1") ;;
   esac
@@ -116,6 +133,7 @@ resolve_target() {
     release) echo "assemble${flavor}Release" ;;
     stable)  echo "assembleStableRelease" ;;
     all)     echo "assemble${flavor}Debug assemble${flavor}Release" ;;
+    check)   echo "lint${flavor}Debug test${flavor}DebugUnitTest :library:checkKotlinAbi" ;;
     desktop) echo ":desktopApp:build" ;;
     *)       echo "$1" ;;
   esac
@@ -281,6 +299,95 @@ on_error() {
   warn "cek log lengkap: $log"
 }
 
+# ------------------------------ telegram -------------------------------------
+# The APK is sent to the test group, so that a fix can be tested on a device
+# before a release is tagged.
+SPLIT_SIZE=$((48 * 1024 * 1024)) # Telegram allows 50 MB, keep some room
+
+newest_apk() {
+  local dir="$REPO_DIR/app/build/outputs/apk/$FLAVOR"
+  [ -d "$dir" ] || return 1
+  find "$dir" -name '*.apk' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-
+}
+
+telegram_caption() {
+  local size="$1"
+  local commit branch subject body
+  commit=$(git rev-parse --short=7 HEAD 2>/dev/null || echo "?")
+  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "?")
+  subject=$(git log -1 --pretty=%s 2>/dev/null || echo "")
+  body=$(git log -1 --pretty=%b 2>/dev/null | sed '/^$/d' | grep -v '^Signed-off-by:' | head -8)
+
+  local caption="CloudStream test build
+commit : $commit ($branch)
+flavor : $FLAVOR
+abi    : ${ABI:-all}
+size   : $(awk -v s="$size" 'BEGIN{printf "%.1f MB", s/1048576}')
+
+$subject"
+  [ -n "$body" ] && caption="$caption
+
+$body"
+  [ -n "$EXTRA_MESSAGE" ] && caption="$caption
+
+$EXTRA_MESSAGE"
+  # Telegram limits the caption to 1024 characters
+  echo "${caption:0:1000}"
+}
+
+telegram_upload() {
+  local file="$1" caption="$2"
+  local response
+  response=$(curl -s --max-time 900 \
+    -F "chat_id=$TELEGRAM_CHAT_ID" \
+    -F "caption=$caption" \
+    -F "document=@$file" \
+    "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendDocument")
+  if echo "$response" | grep -q '"ok":true'; then
+    local msg_id
+    msg_id=$(echo "$response" | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['message_id'])" 2>/dev/null)
+    ok "sent $file (message id $msg_id)"
+  else
+    local desc
+    desc=$(echo "$response" | python3 -c "import json,sys; print(json.load(sys.stdin).get('description', response))" 2>/dev/null)
+    die "upload failed: $desc"
+  fi
+}
+
+send_to_telegram() {
+  local apk
+  apk=$(newest_apk) || die "no APK found for the flavour $FLAVOR"
+  [ -n "$apk" ] || die "no APK found for the flavour $FLAVOR"
+
+  [ -f "$TELEGRAM_CONFIG" ] || die "config not found: $TELEGRAM_CONFIG"
+  # shellcheck disable=SC1090
+  source "$TELEGRAM_CONFIG"
+  [ -n "${TELEGRAM_BOT_TOKEN:-}" ] || die "TELEGRAM_BOT_TOKEN is not set in $TELEGRAM_CONFIG"
+  [ -n "${TELEGRAM_CHAT_ID:-}" ] || die "TELEGRAM_CHAT_ID is not set in $TELEGRAM_CONFIG"
+
+  local size; size=$(stat -c%s "$apk")
+  local name; name=$(basename "$apk")
+  local caption; caption=$(telegram_caption "$size")
+
+  if [ "$size" -gt "$SPLIT_SIZE" ]; then
+    warn "the APK is $(awk -v s="$size" 'BEGIN{printf "%.1f MB", s/1048576}'), it is split into parts"
+    local tmp; tmp=$(mktemp -d)
+    split -b "$SPLIT_SIZE" -d "$apk" "$tmp/$name.part"
+    local parts=("$tmp"/"$name".part*)
+    caption="$caption
+
+The APK is too big for Telegram, it is split into ${#parts[@]} parts.
+Join them on the device with a terminal:
+  cat ${name}.part* > $name"
+    for part in "${parts[@]}"; do
+      telegram_upload "$part" "$caption"
+    done
+    rm -rf "$tmp"
+  else
+    telegram_upload "$apk" "$caption"
+  fi
+}
+
 # ------------------------------ main -----------------------------------------
 main() {
   preflight
@@ -293,19 +400,31 @@ main() {
   say "log file  : $log"
   echo
 
-  run_gradle "$log" "${GRADLE_TASKS[@]}"
-  local rc=$?
+  local rc=0
+  if [ $DO_BUILD -eq 1 ]; then
+    run_gradle "$log" "${GRADLE_TASKS[@]}"
+    rc=$?
 
-  echo
-  if [ $rc -eq 0 ]; then
-    ok "BUILD SUKSES (exit 0) - ${#GRADLE_TASKS[@]} task(s), $(date '+%T')"
-    summary "$log"
-    return 0
+    echo
+    if [ $rc -eq 0 ]; then
+      ok "BUILD SUKSES (exit 0) - ${#GRADLE_TASKS[@]} task(s), $(date '+%T')"
+      summary "$log"
+    else
+      printf '%s%sBUILD GAGAL (exit %s)%s\n' "$c_red" "$c_bold" "$rc" "$c_reset"
+      on_error "$log"
+      return $rc
+    fi
   else
-    printf '%s%sBUILD GAGAL (exit %s)%s\n' "$c_red" "$c_bold" "$rc" "$c_reset"
-    on_error "$log"
-    return $rc
+    say "skipping the build"
   fi
+
+  if [ $DO_SEND -eq 1 ]; then
+    echo
+    say "uploading to the test group ..."
+    send_to_telegram
+  fi
+
+  return $rc
 }
 
 main "$@"
