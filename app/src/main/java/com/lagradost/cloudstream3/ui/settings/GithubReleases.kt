@@ -1,6 +1,7 @@
 package com.lagradost.cloudstream3.ui.settings
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.lagradost.cloudstream3.BuildConfig
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream4.viewmodels.GithubFile
 import com.lagradost.cloudstream4.viewmodels.GithubRepository
@@ -42,8 +43,9 @@ object GithubReleases : GithubRepository {
         @JsonProperty("object") @SerialName("object") val githubObject: GithubObject,
     )
 
-    const val APK_USERNAME = "recloudstream"
-    const val APK_REPOSITORY = "cloudstream"
+    /** The repository that is checked for new versions, set in the build config. */
+    val APK_USERNAME = BuildConfig.UPDATE_REPO_OWNER
+    val APK_REPOSITORY = BuildConfig.UPDATE_REPO_NAME
     const val APK_PRERELEASE = "pre-release"
     const val APK_CONTENT_TYPE = "application/vnd.android.package-archive"
 
