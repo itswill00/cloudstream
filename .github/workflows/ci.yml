@@ -32,6 +32,10 @@ jobs:
 
       # The runner image already has the Android SDK, the setup-android action
       # is not used because it tries to install the removed "tools" package.
+      # The sdkmanager is not on the path, it lives in the command line tools.
+
+      - name: Add the sdkmanager to the path
+        run: echo "$(dirname "$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | head -1)")" >> $GITHUB_PATH
 
       - name: Get compile SDK
         id: sdk
