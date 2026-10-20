@@ -80,7 +80,7 @@
             android:background="?attr/primaryGrayBackground"
             android:baselineAligned="false"
             android:focusable="true"
-            android:foreground="@drawable/outline_drawable"
+            android:foreground="?attr/glassCardOutline"
             android:nextFocusLeft="@id/navigation_downloads"
             android:nextFocusRight="@id/download_stream_button_tv"
             android:nextFocusDown="@id/download_list"
@@ -315,7 +315,7 @@
         <LinearLayout
             android:focusable="true"
             android:nextFocusUp="@id/download_list"
-            android:foreground="@drawable/outline_drawable"
+            android:foreground="?attr/glassCardOutline"
             android:id="@+id/download_queue_button"
             android:layout_width="match_parent"
             android:layout_height="50dp"

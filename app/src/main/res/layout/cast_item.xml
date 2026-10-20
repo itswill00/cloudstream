@@ -8,7 +8,7 @@
     android:layout_height="wrap_content"
     android:layout_margin="5dp"
     android:focusable="true"
-    android:foreground="@drawable/outline_drawable"
+    android:foreground="?attr/glassCardOutline"
     app:cardBackgroundColor="@color/transparent"
     app:cardCornerRadius="@dimen/rounded_image_radius"
     app:cardElevation="0dp">
@@ -32,7 +32,7 @@
                 android:layout_marginStart="10dp"
                 android:layout_marginTop="5dp"
                 android:alpha="0.2"
-                android:foreground="@drawable/outline_drawable"
+                android:foreground="?attr/glassCardOutline"
                 app:cardCornerRadius="35dp">
 
                 <ImageView
@@ -50,7 +50,7 @@
                 android:id="@+id/voice_actor_image_holder2"
                 android:layout_width="70dp"
                 android:layout_height="70dp"
-                android:foreground="@drawable/outline_drawable"
+                android:foreground="?attr/glassCardOutline"
                 app:cardCornerRadius="35dp">
 
                 <ImageView

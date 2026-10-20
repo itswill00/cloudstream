@@ -163,7 +163,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="150dp"
                             android:background="@color/grayShimmer"
-                            android:foreground="@drawable/outline_drawable"
+                            android:foreground="?attr/glassCardOutline"
                             app:cardCornerRadius="@dimen/loading_radius" />
                     </LinearLayout>
                 </com.facebook.shimmer.ShimmerFrameLayout>
@@ -347,7 +347,7 @@
                                 android:layout_height="140dp"
                                 android:layout_gravity="bottom"
                                 android:contentDescription="@string/result_poster_img_des"
-                                android:foreground="@drawable/outline_drawable"
+                                android:foreground="?attr/glassCardOutline"
                                 android:scaleType="centerCrop"
                                 tools:src="@drawable/example_poster" />
                         </androidx.cardview.widget.CardView>
@@ -424,7 +424,7 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:ellipsize="end"
-                                    android:foreground="@drawable/outline_drawable"
+                                    android:foreground="?attr/glassCardOutline"
                                     android:maxLines="10"
                                     android:nextFocusUp="@id/result_back"
                                     android:nextFocusDown="@id/result_bookmark_Button"

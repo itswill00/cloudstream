@@ -26,7 +26,7 @@
             style="@style/ExtendedFloatingActionButton"
             android:layout_gravity="center_vertical"
 
-            android:foreground="@drawable/outline_drawable"
+            android:foreground="?attr/glassCardOutline"
             android:nextFocusLeft="@id/speed_plus"
             android:nextFocusRight="@id/speed_bar"
             android:nextFocusUp="@id/speed_minus"
@@ -63,7 +63,7 @@
             android:id="@+id/speed_plus"
             style="@style/ExtendedFloatingActionButton"
             android:layout_gravity="center_vertical"
-            android:foreground="@drawable/outline_drawable"
+            android:foreground="?attr/glassCardOutline"
             android:nextFocusLeft="@id/speed_bar"
             android:nextFocusRight="@id/speed_minus"
             android:nextFocusDown="@id/speed_200"

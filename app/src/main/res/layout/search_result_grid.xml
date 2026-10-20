@@ -8,7 +8,7 @@
 
     android:clickable="true"
     android:focusable="true"
-    android:foreground="@drawable/outline_drawable"
+    android:foreground="?attr/glassCardOutline"
     android:orientation="vertical">
 
     <androidx.cardview.widget.CardView

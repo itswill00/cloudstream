@@ -12,7 +12,7 @@
     app:cardBackgroundColor="@color/transparent"
     app:cardCornerRadius="@dimen/rounded_image_radius"
     app:cardElevation="0dp"
-    android:foreground="@drawable/outline_drawable"
+    android:foreground="?attr/glassCardOutline"
     >
     <!--
         android:nextFocusLeft="@id/result_episode_download"
