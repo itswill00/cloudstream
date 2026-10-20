@@ -99,6 +99,8 @@
     <!-- The background of the screens, the glass theme makes them translucent
          so that the background of the app shows through -->
     <attr name="glassScreenBackground" format="reference" />
+    <!-- The ring around a card that has the focus -->
+    <attr name="glassCardOutline" format="reference" />
     <!-- True when the Liquid Glass theme is active -->
     <attr name="isGlassTheme" format="boolean" />
 </resources>

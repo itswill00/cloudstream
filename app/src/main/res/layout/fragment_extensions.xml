@@ -99,7 +99,7 @@
         android:background="?attr/primaryGrayBackground"
         android:baselineAligned="false"
         android:focusable="true"
-        android:foreground="@drawable/outline_drawable"
+        android:foreground="?attr/glassCardOutline"
         android:nextFocusRight="@id/add_repo_button_imageview"
         android:nextFocusUp="@id/repo_recycler_view"
         android:orientation="horizontal"
@@ -253,7 +253,7 @@
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/add_repo_button"
         style="@style/ExtendedFloatingActionButton"
-        android:foreground="@drawable/outline_drawable"
+        android:foreground="?attr/glassCardOutline"
         android:nextFocusDown="@id/plugin_storage_appbar"
         android:text="@string/add_repository"
         android:textColor="?attr/textColor"

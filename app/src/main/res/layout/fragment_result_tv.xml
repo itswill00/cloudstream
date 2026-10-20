@@ -613,7 +613,7 @@ https://developer.android.com/design/ui/tv/samples/jet-fit
                         android:ellipsize="end"
                         android:fadingEdgeLength="30dp"
                         android:focusable="true"
-                        android:foreground="@drawable/outline_drawable"
+                        android:foreground="?attr/glassCardOutline"
                         android:maxLines="7"
                         android:nextFocusUp="@id/result_play_parent"
                         android:nextFocusDown="@id/result_cast_items"
@@ -932,7 +932,7 @@ https://developer.android.com/design/ui/tv/samples/jet-fit
                                 android:layout_height="140dp"
                                 android:layout_gravity="bottom"
                                 android:contentDescription="@string/result_poster_img_des"
-                                android:foreground="@drawable/outline_drawable"
+                                android:foreground="?attr/glassCardOutline"
                                 android:scaleType="centerCrop"
                                 tools:src="@drawable/example_poster" />
                         </androidx.cardview.widget.CardView>
@@ -986,7 +986,7 @@ https://developer.android.com/design/ui/tv/samples/jet-fit
                                 android:layout_height="wrap_content"
                                 android:ellipsize="end"
                                 android:fadingEdgeLength="30dp"
-                                android:foreground="@drawable/outline_drawable"
+                                android:foreground="?attr/glassCardOutline"
                                 android:maxLines="7"
                                 android:nextFocusUp="@id/result_back"
                                 android:nextFocusDown="@id/result_bookmark_button"

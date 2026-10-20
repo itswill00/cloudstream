@@ -15,7 +15,7 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:focusable="true"
-        android:foreground="@drawable/outline_drawable"
+        android:foreground="?attr/glassCardOutline"
         android:nextFocusLeft="@id/nav_rail_view"
         android:nextFocusRight="@id/download_button"
         app:cardBackgroundColor="@color/transparent"
@@ -77,7 +77,7 @@
                 android:layout_marginStart="-50dp"
                 android:focusable="true"
                 app:download_animate_waiting="true"
-                android:foreground="@drawable/outline_drawable"
+                android:foreground="?attr/glassCardOutline"
                 android:nextFocusLeft="@id/download_child_episode_holder"
                 android:padding="10dp" />
 

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The ring around a card that has the focus. It is brighter at the top,
+     that is where the light comes from, it looks like the edge of a glass. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/rounded_image_radius" />
+            <stroke
+                android:width="6dp"
+                android:color="#26FFFFFF" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="@dimen/rounded_image_radius" />
+            <stroke android:width="2dp">
+                <gradient
+                    android:angle="270"
+                    android:endColor="#40FFFFFF"
+                    android:startColor="#CCFFFFFF"
+                    android:type="linear" />
+            </stroke>
+        </shape>
+    </item>
+</layer-list>

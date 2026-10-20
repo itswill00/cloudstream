@@ -85,6 +85,7 @@
         <item name="glassNavigationBarColor">?attr/primaryGrayBackground</item>
         <item name="glassPlayerBarBackground">@null</item>
         <item name="glassScreenBackground">?attr/primaryBlackBackground</item>
+        <item name="glassCardOutline">@drawable/outline_drawable</item>
         <item name="isGlassTheme">false</item>
     </style>
 
@@ -275,6 +276,7 @@
         <item name="glassNavigationBarColor">@android:color/transparent</item>
         <item name="glassPlayerBarBackground">@drawable/liquid_glass_player_bar</item>
         <item name="glassScreenBackground">@color/LiquidGlassScreenBackground</item>
+        <item name="glassCardOutline">@drawable/liquid_glass_card_outline</item>
         <!-- The pill behind the selected item of the navigation bar is glass -->
         <item name="colorSecondaryContainer">@color/glassTintStrong</item>
         <item name="isGlassTheme">true</item>

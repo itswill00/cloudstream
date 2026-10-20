@@ -19,7 +19,7 @@
                 app:cardCornerRadius="@dimen/loading_radius"
                 android:layout_width="126dp"
                 android:layout_height="72dp"
-                android:foreground="@drawable/outline_drawable" />
+                android:foreground="?attr/glassCardOutline" />
 
         <LinearLayout
                 android:layout_marginStart="15dp"
