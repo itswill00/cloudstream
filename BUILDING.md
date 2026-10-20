@@ -84,6 +84,22 @@ should always be limited to one architecture:
 `tools/send-test-apk.sh` does this for you and uploads the APK to the test
 group, see [RELEASING.md](RELEASING.md).
 
+## Building on the server
+
+This fork is built on a server, there are no GitHub Actions workflows. The
+workflows of the upstream repository need a GitHub App and a set of API keys
+that only exist in the upstream organisation, so every run failed here.
+
+The whole loop runs on the server:
+
+```bash
+./build.sh release --abi arm64-v8a   # build a signed APK
+./tools/send-test-apk.sh             # build it and send it to the test group
+```
+
+The test build is uploaded to the test group on Telegram, tested on a device
+and only then a release is tagged, see [RELEASING.md](RELEASING.md).
+
 ## Manual build
 
 ```bash
