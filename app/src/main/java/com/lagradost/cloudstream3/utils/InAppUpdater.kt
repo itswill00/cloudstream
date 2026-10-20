@@ -38,11 +38,13 @@ import java.io.IOException
 import java.io.InputStreamReader
 
 object InAppUpdater {
-    private const val GITHUB_USER_NAME = "recloudstream"
-    private const val GITHUB_REPO = "cloudstream"
+    /** The repository that is checked for new versions, set in the build config. */
+    private val githubUserName = BuildConfig.UPDATE_REPO_OWNER
+    private val githubRepo = BuildConfig.UPDATE_REPO_NAME
 
     private const val PRERELEASE_PACKAGE_NAME = "com.lagradost.cloudstream3.prerelease"
     private const val LOG_TAG = "InAppUpdater"
+    private const val APK_CONTENT_TYPE = "application/vnd.android.package-archive"
 
     @Serializable
     private data class GithubAsset(
@@ -98,7 +100,7 @@ object InAppUpdater {
     }
 
     private suspend fun Activity.getReleaseUpdate(): Update {
-        val url = "https://api.github.com/repos/$GITHUB_USER_NAME/$GITHUB_REPO/releases"
+        val url = "https://api.github.com/repos/$githubUserName/$githubRepo/releases"
         val headers = mapOf("Accept" to "application/vnd.github.v3+json")
         val response = parseJson<Array<GithubRelease>>(
             app.get(url, headers = headers).text
@@ -109,7 +111,7 @@ object InAppUpdater {
         val foundList = response.filter { rel ->
             !rel.prerelease
         }.sortedWith(compareBy { release ->
-            release.assets.firstOrNull { it.contentType == "application/vnd.android.package-archive" }?.name?.let { it1 ->
+            release.assets.firstOrNull { it.contentType == APK_CONTENT_TYPE }?.name?.let { it1 ->
                 versionRegex.find(it1)?.groupValues?.let {
                     it[3].toInt() * 100_000_000 + it[4].toInt() * 10_000 + it[5].toInt()
                 }
@@ -117,7 +119,9 @@ object InAppUpdater {
         }).toList()
 
         val found = foundList.lastOrNull()
-        val foundAsset = found?.assets?.getOrNull(0)
+        // Use the apk of the release and not just the first asset, a release can contain
+        // other files as well. The version is read from the name of the apk.
+        val foundAsset = found?.assets?.firstOrNull { it.contentType == APK_CONTENT_TYPE }
         val foundVersion = foundAsset?.name?.let { versionRegex.find(it) }
 
         if (foundVersion == null) {
@@ -152,8 +156,8 @@ object InAppUpdater {
 
     private suspend fun Activity.getPreReleaseUpdate(): Update {
         val tagUrl =
-            "https://api.github.com/repos/$GITHUB_USER_NAME/$GITHUB_REPO/git/ref/tags/pre-release"
-        val releaseUrl = "https://api.github.com/repos/$GITHUB_USER_NAME/$GITHUB_REPO/releases"
+            "https://api.github.com/repos/$githubUserName/$githubRepo/git/ref/tags/pre-release"
+        val releaseUrl = "https://api.github.com/repos/$githubUserName/$githubRepo/releases"
         val headers = mapOf("Accept" to "application/vnd.github.v3+json")
         val response = parseJson<Array<GithubRelease>>(
             app.get(releaseUrl, headers = headers).text
@@ -164,7 +168,7 @@ object InAppUpdater {
         }
 
         val foundAsset = found?.assets?.filter { it ->
-            it.contentType == "application/vnd.android.package-archive"
+            it.contentType == APK_CONTENT_TYPE
         }?.getOrNull(0)
 
         if (foundAsset == null) {

@@ -139,6 +139,16 @@ android {
             "ANILIST_KEY",
             "\"" + (System.getenv("ANILIST_KEY") ?: localProperties["anilist.key"]) + "\""
         )
+        /**
+         * The repository the in app updater checks for new versions.
+         * Override it for other builds with -PupdateRepoOwner=... -PupdateRepoName=...
+         */
+        val updateRepoOwner =
+            (project.findProperty("updateRepoOwner") as String?) ?: "itswill00"
+        val updateRepoName =
+            (project.findProperty("updateRepoName") as String?) ?: "cloudstream"
+        buildConfigField("String", "UPDATE_REPO_OWNER", "\"$updateRepoOwner\"")
+        buildConfigField("String", "UPDATE_REPO_NAME", "\"$updateRepoName\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
