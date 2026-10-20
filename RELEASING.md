@@ -1,5 +1,33 @@
 # Releasing CloudStream
 
+## 0. Test the fix before releasing it
+
+Every change should be tested on a real device before a release is tagged. The
+`tools/send-test-apk.sh` script builds the app and uploads the APK to the test
+group on Telegram:
+
+```bash
+./tools/send-test-apk.sh                          # build and send
+./tools/send-test-apk.sh --message "fixed X"      # with a note
+./tools/send-test-apk.sh --abi armeabi-v7a        # for an older device
+./tools/send-test-apk.sh --no-build               # send the last build
+```
+
+The build is limited to a single architecture, that keeps the APK below the
+50 MB upload limit of the Telegram API. If it is still too big, the script
+splits it into parts.
+
+The bot token and the chat id are read from a file outside of the repository:
+
+```
+# /root/keys/telegram-bot.env
+TELEGRAM_BOT_TOKEN=123456:ABCDEF
+TELEGRAM_CHAT_ID=-1001234567890
+```
+
+The bot has to be able to send documents in the group, promote it to admin if
+the upload is rejected.
+
 ## 1. Prepare the release
 
 The version lives in the version catalog and is used for both flavours:
@@ -56,6 +84,25 @@ configured globally and would otherwise push to the upstream branch.
 gh release create v4.8.1 app/build/outputs/apk/prerelease/release/app-prerelease-release.apk \
     --title "CloudStream 4.8.1" --notes-file RELEASE_NOTES.md
 ```
+
+The name of the asset matters, the in app updater reads the version from it and
+expects `<version>.apk`, for example `4.8.1.apk`.
+
+## The in app updater
+
+The updater checks the repository that is set in the build config:
+
+| | |
+|---|---|
+| `UPDATE_REPO_OWNER` | `itswill00`, override with `-PupdateRepoOwner=...` |
+| `UPDATE_REPO_NAME` | `cloudstream`, override with `-PupdateRepoName=...` |
+
+The stable flavour looks at the latest release, the pre-release flavour at the
+`pre-release` release and compares the commit hash of the `pre-release` **tag**
+with the one that is built into the app. The tag has to be a lightweight tag
+that points at the commit the APK was built from, an annotated tag would report
+the tag object instead of the commit and the updater would offer an update
+forever.
 
 ## Signing key
 
