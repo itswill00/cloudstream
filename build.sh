@@ -20,9 +20,9 @@
 #    --cc             enable gradle configuration cache (default: disabled)
 #    --jobs N         set gradle worker parallelism
 #    --flavor <f>     flavour to build: prerelease or stable (default: prerelease)
-#    --abi <abi>      build for a single architecture, e.g. arm64-v8a.
-#                     The APK is a lot smaller, that is needed to send it to a
-#                     test device.
+#    --abi <abi>      build for a single architecture, arm64-v8a by default.
+#                     Use "all" for every architecture, that makes the APK
+#                     a lot bigger.
 #    --no-sign        do not load the signing key, the APK stays unsigned
 #    --no-build       do not build, only do what --send asks for
 #    --send           upload the APK to the test group on Telegram
@@ -73,7 +73,8 @@ cat <<'USAGE'
    --cc             enable gradle configuration cache
    --jobs N         set gradle worker parallelism
    --flavor <f>     flavour to build: prerelease or stable (default: prerelease)
-   --abi <abi>      build for a single architecture, e.g. arm64-v8a
+   --abi <abi>      build for a single architecture, arm64-v8a by default,
+                    "all" builds every architecture
    --no-sign        do not load the signing key, the APK stays unsigned
    --no-build       do not build, only upload the last build
    --send           upload the APK to the test group on Telegram
@@ -96,7 +97,10 @@ die()  { printf '%s[fail]%s %s\n' "$c_red" "$c_reset" "$*"; exit 1; }
 
 # --------------------------- arg parsing ------------------------------------
 TASKS=(); DO_INSTALL=0; DO_CLEAN=0; OFFLINE=0; NO_DAEMON=0; USE_CC=0; JOBS=""
-FLAVOR="prerelease"; ABI=""; NO_SIGN=0; DO_BUILD=1; DO_SEND=0
+FLAVOR="prerelease"; NO_SIGN=0; DO_BUILD=1; DO_SEND=0
+# The build is for arm64, that is the architecture of the devices that are
+# used. It makes the build faster and the APK a lot smaller.
+ABI="${ABI:-arm64-v8a}"
 EXTRA_MESSAGE=""; TELEGRAM_CONFIG="${TELEGRAM_CONFIG:-/root/keys/telegram-bot.env}"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -122,6 +126,15 @@ done
 case "$FLAVOR" in
   prerelease|stable) ;;
   *) die "unknown flavor: $FLAVOR (use prerelease or stable)" ;;
+esac
+
+# The architecture is written in a few ways, they all mean the same thing
+case "$ABI" in
+  all|universal|"") ABI="" ;;
+  arm64|arm64-v8a|aarch64) ABI="arm64-v8a" ;;
+  armv7|arm|armeabi|armeabi-v7a) ABI="armeabi-v7a" ;;
+  x86_64|x64) ABI="x86_64" ;;
+  x86) ABI="x86" ;;
 esac
 
 # default task set
