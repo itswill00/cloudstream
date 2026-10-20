@@ -45,6 +45,7 @@ The APK is written to `app/build/outputs/apk/prerelease/debug/`.
 | `./build.sh release` | `assemblePrereleaseRelease` |
 | `./build.sh stable` | `assembleStableRelease` |
 | `./build.sh all` | debug + release |
+| `./build.sh check` | lint, unit tests and the binary compatibility check |
 | `./build.sh desktop` | `:desktopApp:build` (Kotlin Multiplatform desktop) |
 | `./build.sh <task>` | any arbitrary Gradle task |
 
@@ -61,6 +62,10 @@ Flags:
 | `--flavor <f>` | Flavour to build, `prerelease` or `stable` (default `prerelease`). |
 | `--abi <abi>` | Build for a single architecture, e.g. `arm64-v8a`. The APK is a lot smaller, that is needed to send it to a test device. |
 | `--no-sign` | Do not load the signing key, the APK stays unsigned. |
+| `--no-build` | Do not build, only do what `--send` asks for. |
+| `--send` | Upload the APK to the test group on Telegram. |
+| `--message <text>` | Extra text for the caption of the upload. |
+| `--config <file>` | File with `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. |
 
 The script prints the build output live and additionally stores it in
 `/root/build-logs/build-<timestamp>.log` (override with `BUILD_LOG_DIR`). On
@@ -68,7 +73,7 @@ failure it extracts the `FAILURE:` / `* What went wrong` section from the log.
 On success it lists the produced APKs with size, version name and SHA-256.
 
 Environment overrides: `REPO_DIR`, `ANDROID_HOME` / `ANDROID_SDK_ROOT`,
-`JAVA_HOME`, `BUILD_LOG_DIR`, `KEYS_ENV_FILE`.
+`JAVA_HOME`, `BUILD_LOG_DIR`, `KEYS_ENV_FILE`, `TELEGRAM_CONFIG`.
 
 ### A smaller APK for a test device
 
@@ -81,8 +86,8 @@ should always be limited to one architecture:
 ./build.sh release --abi armeabi-v7a      # older 32 bit devices
 ```
 
-`tools/send-test-apk.sh` does this for you and uploads the APK to the test
-group, see [RELEASING.md](RELEASING.md).
+`build.sh` does this for you and uploads the APK to the test group with
+`--send`, see [RELEASING.md](RELEASING.md).
 
 ## Building on the server
 
@@ -90,17 +95,21 @@ This fork is built on a server, there are no GitHub Actions workflows. The
 workflows of the upstream repository need a GitHub App and a set of API keys
 that only exist in the upstream organisation, so every run failed here.
 
-The whole loop runs on the server:
+`build.sh` is the only script of this repository, the whole loop runs with it:
 
 ```bash
-./build.sh release --abi arm64-v8a   # build a signed APK
-./tools/send-test-apk.sh             # build it and send it to the test group
+./build.sh check                          # lint, unit tests, ABI check
+./build.sh release --abi arm64-v8a        # build a signed APK
+./build.sh release --abi arm64-v8a --send # build it and send it to the group
 ```
 
 The test build is uploaded to the test group on Telegram, tested on a device
 and only then a release is tagged, see [RELEASING.md](RELEASING.md).
 
 ## Manual build
+
+The Gradle wrapper can still be used directly, but `build.sh` does the same
+and checks the environment first:
 
 ```bash
 # point the build at your SDK
@@ -111,9 +120,10 @@ chmod +x gradlew
 ./gradlew assemblePrereleaseRelease
 ```
 
-Useful extra tasks:
+Useful extra tasks, they are also available in `build.sh`:
 
 ```bash
+./build.sh check                   # lint, unit tests and the ABI check
 ./gradlew lint                      # Android lint
 ./gradlew check                     # unit tests
 ./gradlew :library:checkKotlinAbi   # Kotlin ABI compatibility check
