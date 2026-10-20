@@ -41,10 +41,11 @@ object DownloadObjects {
         }
 
         @JsonProperty("id") @SerialName("id")
-        val id = resumePackage?.item?.ep?.id ?: downloadItem!!.episode.id
+        val id = resumePackage?.item?.ep?.id ?: downloadItem?.let { it.episode.id } ?: 0
 
         @JsonProperty("parentId") @SerialName("parentId")
-        val parentId = resumePackage?.item?.ep?.parentId ?: downloadItem!!.episode.parentId
+        val parentId = resumePackage?.item?.ep?.parentId
+            ?: downloadItem?.let { it.episode.parentId } ?: 0
     }
 
     /** General data about the episode and show to start a download from. */
