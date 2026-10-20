@@ -12,6 +12,8 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import com.lagradost.cloudstream4.compose.glass.GlassStyle
+import com.lagradost.cloudstream4.compose.glass.LocalGlassStyle
 
 enum class CloudStreamThemeMode {
     /** "Black" standard dark, #111111 backgrounds */
@@ -126,8 +128,16 @@ fun CloudStreamTheme(
 ) {
     val csColors = modeToTheme(mode, primaryColor)
     val globalTransition = rememberInfiniteTransition(label = "GlobalSharedTransition")
+    val glassStyle = if (mode == CloudStreamThemeMode.LiquidGlass) {
+        GlassStyle.LiquidGlass
+    } else {
+        GlassStyle.Disabled
+    }
     // We do not provide csColors as a global, because people should use MaterialTheme directly instead
-    CompositionLocalProvider(LocalSharedInfiniteTransition provides globalTransition) {
+    CompositionLocalProvider(
+        LocalSharedInfiniteTransition provides globalTransition,
+        LocalGlassStyle provides glassStyle,
+    ) {
         MaterialTheme(
             colorScheme = csColors.toMaterial3ColorScheme(),
             content = content,
