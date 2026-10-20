@@ -10,8 +10,9 @@ import android.util.Log
 import com.lagradost.cloudstream3.mvvm.safe
 import com.lagradost.cloudstream3.utils.Coroutines.ioSafe
 
-class FcastManager {
+object FcastManager {
     private var nsdManager: NsdManager? = null
+    private var discoveryListener: NsdManager.DiscoveryListener? = null
 
     // Used for receiver
     private val registrationListenerTcp = DefaultRegistrationListener()
@@ -43,18 +44,30 @@ class FcastManager {
             )
         }
 
+        // A discovery that is still running is stopped first, otherwise every
+        // new instance starts another one and every device is found twice.
+        stopDiscovery()
+        val listener = DefaultDiscoveryListener()
+        discoveryListener = listener
         nsdManager?.discoverServices(
             serviceType,
             NsdManager.PROTOCOL_DNS_SD,
-            DefaultDiscoveryListener()
+            listener
         )
     }
 
     fun stop() {
         nsdManager?.unregisterService(registrationListenerTcp)
+        stopDiscovery()
     }
 
-    inner class DefaultDiscoveryListener : NsdManager.DiscoveryListener {
+    private fun stopDiscovery() {
+        val listener = discoveryListener ?: return
+        discoveryListener = null
+        nsdManager?.stopServiceDiscovery(listener)
+    }
+
+    class DefaultDiscoveryListener : NsdManager.DiscoveryListener {
         val tag = "DiscoveryListener"
         override fun onStartDiscoveryFailed(serviceType: String?, errorCode: Int) {
             Log.d(tag, "Discovery failed: $serviceType, error code: $errorCode")
@@ -122,9 +135,7 @@ class FcastManager {
                         override fun onServiceResolved(serviceInfo: NsdServiceInfo?) {
                             if (serviceInfo == null) return
 
-                            synchronized(_currentDevices) {
-                                _currentDevices.add(PublicDeviceInfo(serviceInfo))
-                            }
+                            addDevice(PublicDeviceInfo(serviceInfo))
 
                             Log.d(
                                 tag,
@@ -150,32 +161,41 @@ class FcastManager {
         }
     }
 
-    companion object {
-        const val APP_PREFIX = "CloudStream"
-        private val _currentDevices: MutableList<PublicDeviceInfo> = mutableListOf()
-        val currentDevices: List<PublicDeviceInfo> = _currentDevices
+    /**
+     * Adds the device to the list, a device that is already in the list is
+     * replaced instead of added a second time.
+     */
+    private fun addDevice(device: PublicDeviceInfo) {
+        synchronized(_currentDevices) {
+            _currentDevices.removeAll { it.rawName == device.rawName }
+            _currentDevices.add(device)
+        }
+    }
 
-        class DefaultRegistrationListener : NsdManager.RegistrationListener {
-            val tag = "DiscoveryService"
-            override fun onServiceRegistered(serviceInfo: NsdServiceInfo) {
-                Log.d(tag, "Service registered: ${serviceInfo.serviceName}")
-            }
+    const val APP_PREFIX = "CloudStream"
+    private val _currentDevices: MutableList<PublicDeviceInfo> = mutableListOf()
+    val currentDevices: List<PublicDeviceInfo> = _currentDevices
 
-            override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                Log.e(tag, "Service registration failed: errorCode=$errorCode")
-            }
-
-            override fun onServiceUnregistered(serviceInfo: NsdServiceInfo) {
-                Log.d(tag, "Service unregistered: ${serviceInfo.serviceName}")
-            }
-
-            override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                Log.e(tag, "Service unregistration failed: errorCode=$errorCode")
-            }
+    class DefaultRegistrationListener : NsdManager.RegistrationListener {
+        val tag = "DiscoveryService"
+        override fun onServiceRegistered(serviceInfo: NsdServiceInfo) {
+            Log.d(tag, "Service registered: ${serviceInfo.serviceName}")
         }
 
-        const val TCP_PORT = 46899
+        override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+            Log.e(tag, "Service registration failed: errorCode=$errorCode")
+        }
+
+        override fun onServiceUnregistered(serviceInfo: NsdServiceInfo) {
+            Log.d(tag, "Service unregistered: ${serviceInfo.serviceName}")
+        }
+
+        override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+            Log.e(tag, "Service unregistration failed: errorCode=$errorCode")
+        }
     }
+
+    const val TCP_PORT = 46899
 }
 
 class PublicDeviceInfo(serviceInfo: NsdServiceInfo) {

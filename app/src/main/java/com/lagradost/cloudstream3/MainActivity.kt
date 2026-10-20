@@ -1993,7 +1993,7 @@ class MainActivity : AppCompatActivity(), ColorPickerDialogListener, BiometricCa
         //    runAutoUpdate()
         //}
 
-        FcastManager().init(this, false)
+        FcastManager.init(this, false)
 
         APIRepository.dubStatusActive = getApiDubstatusSettings()
 
