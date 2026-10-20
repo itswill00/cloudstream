@@ -30,8 +30,8 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # The runner image already has the Android SDK, the setup-android action
+      # is not used because it tries to install the removed "tools" package.
 
       - name: Get compile SDK
         id: sdk
@@ -39,11 +39,11 @@ jobs:
           COMPILE_SDK=$(grep -E '^\s*compileSdk\s*=' gradle/libs.versions.toml | grep -o '[0-9]\+' | head -1)
           echo "version=$COMPILE_SDK" >> $GITHUB_OUTPUT
 
-      - name: Install SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-${{ steps.sdk.outputs.version }}.0" "build-tools;37.0.0"
-
       - name: Accept SDK licenses
         run: yes | sdkmanager --licenses >/dev/null
+
+      - name: Install SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-${{ steps.sdk.outputs.version }}.0"
 
       - name: Grant execute permission
         run: chmod +x gradlew build.sh
