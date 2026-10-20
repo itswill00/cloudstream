@@ -64,6 +64,7 @@ cat <<'USAGE'
    ./build.sh stable              stable release APK
    ./build.sh all                 debug + release
    ./build.sh check               lint, unit tests and ABI check
+   ./build.sh notes               write the description of the pre-release
    ./build.sh desktop             Kotlin Multiplatform desktop app
    ./build.sh <gradle-task...>    arbitrary gradle task
 
@@ -80,6 +81,7 @@ cat <<'USAGE'
    --send           upload the APK to the test group on Telegram
    --message <text> extra text for the caption of the upload
    --config <file>  file with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
+   --dry-run        only show what would be done, do not change anything
    -h|--help        show this help
 
  Env overrides:
@@ -97,7 +99,7 @@ die()  { printf '%s[fail]%s %s\n' "$c_red" "$c_reset" "$*"; exit 1; }
 
 # --------------------------- arg parsing ------------------------------------
 TASKS=(); DO_INSTALL=0; DO_CLEAN=0; OFFLINE=0; NO_DAEMON=0; USE_CC=0; JOBS=""
-FLAVOR="prerelease"; NO_SIGN=0; DO_BUILD=1; DO_SEND=0
+FLAVOR="prerelease"; NO_SIGN=0; DO_BUILD=1; DO_SEND=0; DRY_RUN=0
 EXTRA_MESSAGE=""; TELEGRAM_CONFIG="${TELEGRAM_CONFIG:-/root/keys/telegram-bot.env}"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -113,6 +115,7 @@ while [ $# -gt 0 ]; do
     --send)      DO_SEND=1 ;;
     --message)   EXTRA_MESSAGE="${2:-}"; shift ;;
     --config)    TELEGRAM_CONFIG="$2"; shift ;;
+    --dry-run)   DRY_RUN=1 ;;
     -h|--help)   usage; exit 0 ;;
     *)           TASKS+=("$1") ;;
   esac
@@ -134,12 +137,15 @@ resolve_target() {
     stable)  echo "assembleStableRelease" ;;
     all)     echo "assemble${flavor}Debug assemble${flavor}Release" ;;
     check)   echo "lint${flavor}Debug test${flavor}DebugUnitTest :library:checkKotlinAbi" ;;
+    notes)   echo "" ;;
     desktop) echo ":desktopApp:build" ;;
     *)       echo "$1" ;;
   esac
 }
 GRADLE_TASKS=()
+DO_NOTES=0
 for t in "${TASKS[@]}"; do
+  if [ "$t" = "notes" ]; then DO_NOTES=1; continue; fi
   for one in $(resolve_target "$t"); do GRADLE_TASKS+=("$one"); done
 done
 
@@ -387,8 +393,152 @@ Join them on the device with a terminal:
   fi
 }
 
+# --------------------------- release notes -----------------------------------
+# The description of the pre-release release on GitHub. It has to say what
+# changed since the last build and how to test it, a one liner is not enough.
+RELEASE_SLUG="${RELEASE_SLUG:-itswill00/cloudstream}"
+RELEASE_TAG="${RELEASE_TAG:-pre-release}"
+
+# The commit of the last pre-release, it is written in the description of the
+# release. If it is not there, the last stable release is used.
+previous_pre_release_commit() {
+  local body sha
+  body=$(gh release view "$RELEASE_TAG" --json body -q .body 2>/dev/null) || body=""
+  sha=$(echo "$body" | grep -oE 'Build: `[0-9a-f]{7,40}`' | grep -oE '[0-9a-f]{7,40}' | head -1)
+  if [ -n "$sha" ] && git cat-file -e "$sha^{commit}" 2>/dev/null; then
+    echo "$sha"
+    return 0
+  fi
+  local tag
+  tag=$(git tag -l 'v*' --sort=-v:refname | head -1)
+  if [ -n "$tag" ]; then
+    echo "$tag"
+    return 0
+  fi
+  echo ""
+}
+
+# The changelog, the commits since the last pre-release, grouped by what they
+# do.
+changelog() {
+  local since="$1"
+  local line type subject
+  local new="" fixes="" build="" other=""
+  if [ -n "$since" ]; then
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      type=$(echo "$line" | sed -nE 's/^([a-z]+)(\([^)]*\))?: .*/\1/p')
+      subject=$(echo "$line" | sed -E 's/^[a-z]+(\([^)]*\))?: //')
+      [ -z "$subject" ] && subject="$line"
+      subject="${subject^}"
+      case "$type" in
+        feat|feature) new="$new- $subject"$'\n' ;;
+        fix|bugfix)   fixes="$fixes- $subject"$'\n' ;;
+        build|ci|perf) build="$build- $subject"$'\n' ;;
+        *)            other="$other- $subject"$'\n' ;;
+      esac
+    done < <(git log --no-merges --pretty=format:'%s' "$since"..HEAD 2>/dev/null)
+  fi
+  local first=1
+  section() {
+    [ -z "$1" ] && return
+    [ $first -eq 0 ] && printf '\n'
+    first=0
+    printf '### %s\n\n%b' "$2" "$1"
+  }
+  section "$new" "New"
+  section "$fixes" "Fixes"
+  section "$build" "Build"
+  section "$other" "Other"
+  if [ $first -eq 1 ]; then
+    printf 'There is nothing new since the last build.\n'
+  fi
+}
+
+# Writes the description of the pre-release release.
+generate_release_notes() {
+  local out="$1"
+  local commit previous last_stable apk size
+  commit=$(git rev-parse --short=7 HEAD)
+  previous=$(previous_pre_release_commit)
+  last_stable=$(git tag -l 'v*' --sort=-v:refname | head -1)
+
+  apk=""
+  size=""
+  local found
+  found=$(newest_apk 2>/dev/null)
+  if [ -n "$found" ] && [ -f "$found" ]; then
+    apk=$(basename "$found")
+    size=$(awk -v s="$(stat -c%s "$found")" 'BEGIN{printf "%.1f MB", s/1048576}')
+  fi
+
+  {
+    echo "Pre-release build of the fork, it is for testing on a device before a"
+    echo "release is tagged."
+    echo
+    echo "Build: \`$commit\` ($(date '+%F %T'))"
+    if [ -n "$apk" ]; then
+      echo "APK: \`$apk\` ($size, arm64-v8a, signed with the release key)"
+    fi
+    echo
+    echo "## What is new"
+    echo
+    if [ -n "$previous" ] && [ "$previous" != "$last_stable" ]; then
+      echo "The changes since the last build (\`$previous\`):"
+    elif [ -n "$last_stable" ]; then
+      echo "The changes since the last release (\`$last_stable\`):"
+    else
+      echo "The changes of this build:"
+    fi
+    echo
+    changelog "$previous"
+    if [ -n "$last_stable" ] && [ "$previous" != "$last_stable" ]; then
+      echo
+      echo "## Everything since the last release"
+      echo
+      echo "All the changes since \`$last_stable\`:"
+      echo
+      changelog "$last_stable"
+    fi
+    echo
+    echo "## How to test"
+    echo
+    echo "1. Install the APK, it replaces the previous build, the signing key is"
+    echo "   the same so it can be installed over it."
+    echo "2. The build is for arm64 only."
+    echo "3. Report the problems in the test group on Telegram."
+    echo
+    echo "AI assistance: this build was written with AI (OpenCode), it was checked"
+    echo "with the linter, the unit tests and the binary compatibility check."
+  } > "$out"
+}
+
+notes_target() {
+  local file
+  file=$(mktemp)
+  generate_release_notes "$file"
+  cat "$file"
+  if [ $DRY_RUN -eq 1 ]; then
+    rm -f "$file"
+    echo
+    say "dry run, the release was not changed"
+    return 0
+  fi
+  echo
+  gh release edit "$RELEASE_TAG" --notes-file "$file" --repo "$RELEASE_SLUG" \
+    || { rm -f "$file"; die "could not update the release"; }
+  rm -f "$file"
+  ok "the description of the $RELEASE_TAG release is updated"
+}
+
 # ------------------------------ main -----------------------------------------
 main() {
+  # The notes do not need a build, they are only the description of a release
+  if [ $DO_NOTES -eq 1 ] && [ ${#GRADLE_TASKS[@]} -eq 0 ]; then
+    notes_target
+    return $?
+  fi
+
   preflight
   local stamp; stamp=$(date '+%Y%m%d-%H%M%S')
   local log="$LOG_DIR/build-$stamp.log"
@@ -421,6 +571,12 @@ main() {
     echo
     say "uploading to the test group ..."
     send_to_telegram
+  fi
+
+  if [ $DO_NOTES -eq 1 ]; then
+    echo
+    say "writing the description of the $RELEASE_TAG release ..."
+    notes_target
   fi
 
   return $rc

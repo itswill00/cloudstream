@@ -106,6 +106,43 @@ gh release upload pre-release app/build/outputs/apk/prerelease/release/app-prere
     --clobber
 ```
 
+## The description of the pre-release
+
+The description of the `pre-release` release is not a one liner. It has to say
+what changed and how to test it, the people that test the build have to know
+what to look at.
+
+```bash
+./build.sh notes              # write the description and put it on GitHub
+./build.sh notes --dry-run    # only show it
+```
+
+The script writes the description from the commits:
+
+| Part | What is in it |
+|---|---|
+| The header | The commit and the date of the build, the name and the size of the APK |
+| **What is new** | The commits since the last build, grouped into new, fixes and build changes |
+| **Everything since the last release** | The complete list since the last stable release, for the people that did not test the previous build |
+| **How to test** | How to install the build and where to report the problems |
+| The note about AI | That the build was written with AI and how it was checked |
+
+Every pre-release gets a description, it is not optional:
+
+```bash
+./build.sh release --send      # build and send the APK to the test group
+./build.sh notes               # update the description of the release
+```
+
+Both in one go:
+
+```bash
+./build.sh release --send notes
+```
+
+The script knows the commit of the last build, it reads it from the
+description of the release, so it only writes what is new.
+
 ## Signing key
 
 | | |
