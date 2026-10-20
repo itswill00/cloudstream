@@ -330,7 +330,7 @@ object Torrent {
     ) {
         fun streamUrl(url: String): String {
             val fileName =
-                this.fileStats?.first { !it.path.isNullOrBlank() }?.path
+                this.fileStats?.firstOrNull { !it.path.isNullOrBlank() }?.path
                     ?: throw ErrorLoadingException("Null path")
 
             val index = url.substringAfter("index=").substringBefore("&").toIntOrNull() ?: 0
