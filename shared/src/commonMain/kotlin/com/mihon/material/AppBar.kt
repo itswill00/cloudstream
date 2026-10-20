@@ -36,6 +36,10 @@ import com.lagradost.cloudstream4.generated.resources.action_bar_up_description
 import com.lagradost.cloudstream4.generated.resources.arrow_back
 import com.lagradost.cloudstream4.generated.resources.cancel
 import com.lagradost.cloudstream4.generated.resources.close
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.glass.GlassStyle
+import dev.chrisbanes.haze.glass.hazeGlass
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -58,6 +62,9 @@ fun AppBar(
     actionModeActions: @Composable RowScope.() -> Unit = {},
 
     scrollBehavior: TopAppBarScrollBehavior? = null,
+
+    // The content that scrolls under the app bar, it is blurred by the glass
+    hazeState: HazeState? = null,
 ) {
     val isActionMode by remember(actionModeCounter) {
         derivedStateOf { actionModeCounter > 0 }
@@ -85,6 +92,7 @@ fun AppBar(
         isActionMode = isActionMode,
         onCancelActionMode = onCancelActionMode,
         scrollBehavior = scrollBehavior,
+        hazeState = hazeState,
     )
 }
 
@@ -105,45 +113,70 @@ fun AppBar(
     onCancelActionMode: () -> Unit = {},
 
     scrollBehavior: TopAppBarScrollBehavior? = null,
+
+    // The content that scrolls under the app bar, it is blurred by the glass
+    hazeState: HazeState? = null,
 ) {
     val glass = LocalGlassStyle.current
     Column(
         modifier = modifier,
     ) {
-        TopAppBar(
-            // TODO @WindowInsets remove this when we have converted everything to compose
-            windowInsets = WindowInsets(0, 0, 0, 0),
-            navigationIcon = {
-                if (isActionMode) {
-                    IconButton(onClick = onCancelActionMode) {
-                        Icon(
-                            painter = painterResource(Res.drawable.close),
-                            contentDescription = stringResource(Res.string.cancel),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(
+                    if (glass.enabled && hazeState != null) {
+                        Modifier.hazeGlass(
+                            input = HazeInput.Sources(hazeState),
+                            style = GlassStyle {
+                                tint(Color.White.copy(alpha = 0.12f))
+                                shape(RoundedCornerShape(0.dp))
+                                specularIntensity(0.35f)
+                                ambientResponse(0.1f)
+                            },
                         )
+                    } else {
+                        Modifier
                     }
-                } else {
-                    navigateUp?.let {
-                        IconButton(onClick = it) {
-                            UpIcon(navigationIcon = navigationIcon)
+                ),
+        ) {
+            TopAppBar(
+                // TODO @WindowInsets remove this when we have converted everything to compose
+                windowInsets = WindowInsets(0, 0, 0, 0),
+                navigationIcon = {
+                    if (isActionMode) {
+                        IconButton(onClick = onCancelActionMode) {
+                            Icon(
+                                painter = painterResource(Res.drawable.close),
+                                contentDescription = stringResource(Res.string.cancel),
+                            )
+                        }
+                    } else {
+                        navigateUp?.let {
+                            IconButton(onClick = it) {
+                                UpIcon(navigationIcon = navigationIcon)
+                            }
                         }
                     }
-                }
-            },
-            title = titleContent,
-            actions = actions,
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = when {
-                    backgroundColor != null -> backgroundColor
-                    // The glass is translucent, the background shows through it
-                    glass.enabled -> glass.tint
-                    else -> MaterialTheme.colorScheme.surfaceColorAtElevation(
-                        elevation = if (isActionMode) 3.dp else 0.dp,
-                    )
                 },
-            ),
-            scrollBehavior = scrollBehavior,
-        )
-        if (glass.enabled) {
+                title = titleContent,
+                actions = actions,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = when {
+                        backgroundColor != null -> backgroundColor
+                        // The glass is drawn behind the app bar, the bar itself
+                        // has to be transparent
+                        glass.enabled && hazeState != null -> Color.Transparent
+                        glass.enabled -> glass.tint
+                        else -> MaterialTheme.colorScheme.surfaceColorAtElevation(
+                            elevation = if (isActionMode) 3.dp else 0.dp,
+                        )
+                    },
+                ),
+                scrollBehavior = scrollBehavior,
+            )
+        }
+        if (glass.enabled && hazeState == null) {
             // The light that hits the bottom edge of the glass
             Box(
                 Modifier

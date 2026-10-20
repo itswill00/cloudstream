@@ -36,6 +36,8 @@ kotlin {
             implementation(libs.coil.network.ktor3)
             implementation(libs.bundles.compose)
             implementation(libs.kotlinx.collections.immutable)
+            implementation(libs.haze)
+            implementation(libs.haze.glass)
             implementation(project(":library"))
         }
 

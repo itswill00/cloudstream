@@ -157,6 +157,8 @@ compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.r
 compose-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
 lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+haze = { module = "dev.chrisbanes.haze:haze", version = "2.0.1" }
+haze-glass = { module = "dev.chrisbanes.haze:haze-glass", version = "2.0.1" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
