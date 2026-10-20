@@ -1756,8 +1756,12 @@ class GeneratorPlayer : FullScreenPlayer() {
         var isOpVisible = false
         when (val meta = currentMeta) {
             is ResultEpisode -> {
+                // The episode number of the season is not enough to tell if the
+                // progress was already synced, the number of the whole show is
+                // used, the same number that is synced.
+                val episodeNumber = meta.totalEpisodeIndex ?: meta.episode
                 if (percentage >= UPDATE_SYNC_PROGRESS_PERCENTAGE && (maxEpisodeSet
-                        ?: -1) < meta.episode
+                        ?: -1) < episodeNumber
                 ) {
                     context?.let { ctx ->
                         val settingsManager = PreferenceManager.getDefaultSharedPreferences(ctx)
@@ -1765,8 +1769,8 @@ class GeneratorPlayer : FullScreenPlayer() {
                                 ctx.getString(R.string.episode_sync_enabled_key), true
                             )
                         ) {
-                            maxEpisodeSet = meta.episode
-                            sync.modifyMaxEpisode(meta.totalEpisodeIndex ?: meta.episode)
+                            maxEpisodeSet = episodeNumber
+                            sync.modifyMaxEpisode(episodeNumber)
                         }
                     }
                 }
