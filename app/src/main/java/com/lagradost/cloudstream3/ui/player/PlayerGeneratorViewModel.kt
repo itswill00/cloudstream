@@ -284,10 +284,12 @@ class PlayerGeneratorViewModel : ViewModel() {
         if (id == currentLoadingEpisodeId) return
 
         Log.i(TAG, "preLoadNextLinks")
-        currentJob?.cancel()
+        // The preload has its own job, it must not cancel the job that loads
+        // the links of the episode that is played
+        preloadJob?.cancel()
         currentLoadingEpisodeId = id
 
-        currentJob = viewModelScope.launch {
+        preloadJob = viewModelScope.launch {
             try {
                 if (generator?.hasCache == true && generator?.hasNext(episodeIndex) == true) {
                     safeApiCall {
@@ -334,6 +336,7 @@ class PlayerGeneratorViewModel : ViewModel() {
     }
 
     private var currentJob: Job? = null
+    private var preloadJob: Job? = null
     private var currentStampJob: Job? = null
 
     fun loadStamps(duration: Long) {
