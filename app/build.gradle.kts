@@ -88,10 +88,19 @@ android {
         // We just use SIGNING_KEY_ALIAS here since it won't change
         // so won't kill the configuration cache.
         if (System.getenv("SIGNING_KEY_ALIAS") != null) {
-            create("prerelease") {
-                val tmpFilePath = System.getProperty("user.home") + "/work/_temp/keystore/"
-                val prereleaseStoreFile: File? = File(tmpFilePath).listFiles()?.first()
+            val tmpFilePath = System.getProperty("user.home") + "/work/_temp/keystore/"
+            val prereleaseStoreFile: File? = File(tmpFilePath).listFiles()?.first()
 
+            create("prerelease") {
+                storeFile = prereleaseStoreFile?.let { file(it) }
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+
+            // The stable flavour is signed with the same key, so that the app can be
+            // updated in place and the in app updater can install the new version.
+            create("stable") {
                 storeFile = prereleaseStoreFile?.let { file(it) }
                 storePassword = System.getenv("SIGNING_STORE_PASSWORD")
                 keyAlias = System.getenv("SIGNING_KEY_ALIAS")
@@ -176,6 +185,11 @@ android {
     productFlavors {
         create("stable") {
             dimension = "state"
+            if (signingConfigs.names.contains("stable")) {
+                signingConfig = signingConfigs.getByName("stable")
+            } else {
+                logger.warn("No stable signing config!")
+            }
         }
         create("prerelease") {
             dimension = "state"
