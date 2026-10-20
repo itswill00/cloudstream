@@ -130,7 +130,7 @@ esac
 
 # The architecture is written in a few ways, they all mean the same thing
 case "$ABI" in
-  all|universal|"") ABI="" ;;
+  all|universal) ABI="all" ;;
   arm64|arm64-v8a|aarch64) ABI="arm64-v8a" ;;
   armv7|arm|armeabi|armeabi-v7a) ABI="armeabi-v7a" ;;
   x86_64|x64) ABI="x86_64" ;;
