@@ -21,6 +21,7 @@ import com.lagradost.cloudstream3.databinding.BottomInputDialogBinding
 import com.lagradost.cloudstream3.databinding.BottomSelectionDialogBinding
 import com.lagradost.cloudstream3.databinding.BottomTextDialogBinding
 import com.lagradost.cloudstream3.databinding.OptionsPopupTvBinding
+import com.lagradost.cloudstream3.ui.glass.Glass
 import com.lagradost.cloudstream3.ui.settings.Globals.EMULATOR
 import com.lagradost.cloudstream3.ui.settings.Globals.PHONE
 import com.lagradost.cloudstream3.ui.settings.Globals.TV
@@ -241,6 +242,7 @@ object SingleSelectionHelper {
 
         val dialog = builder.create()
         dialog.show()
+        dialog.window?.let { Glass.blurBackground(it) }
         showDialog(
             binding,
             dialog,
@@ -273,7 +275,7 @@ object SingleSelectionHelper {
 
         val dialog = builder.create()
         dialog.show()
-
+        dialog.window?.let { Glass.blurBackground(it) }
 
         showDialog(
             binding,
