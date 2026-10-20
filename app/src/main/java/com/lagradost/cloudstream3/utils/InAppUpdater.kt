@@ -135,14 +135,16 @@ object InAppUpdater {
         val shouldUpdate = if (foundAsset.browserDownloadUrl.isBlank()) {
             false
         } else {
-            currentVersion?.versionName?.let { versionName ->
+            val installedVersion = currentVersion?.versionName?.let { versionName ->
                 versionRegexLocal.find(versionName)?.groupValues?.let {
                     it[3].toInt() * 100_000_000 + it[4].toInt() * 10_000 + it[5].toInt()
                 }
-            }?.compareTo(
-                foundVersion.groupValues.let {
-                    it[3].toInt() * 100_000_000 + it[4].toInt() * 10_000 + it[5].toInt()
-                })!! < 0
+            }
+            val newVersion = foundVersion.groupValues.let {
+                it[3].toInt() * 100_000_000 + it[4].toInt() * 10_000 + it[5].toInt()
+            }
+            // A version that cannot be read is not updated
+            installedVersion != null && installedVersion < newVersion
         }
 
         return Update(
