@@ -7,7 +7,7 @@
         android:padding="5dp"
         app:cardCornerRadius="10dp"
         app:cardBackgroundColor="?attr/primaryBlackBackground"
-        android:background="?attr/primaryBlackBackground">
+        android:background="?attr/glassScreenBackground">
 
     <TextView
             android:padding="20dp"

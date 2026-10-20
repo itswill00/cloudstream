@@ -86,7 +86,7 @@
         android:id="@+id/download_child_list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?attr/primaryBlackBackground"
+        android:background="?attr/glassScreenBackground"
         android:nextFocusLeft="@id/navigation_downloads"
         android:nextFocusUp="@id/download_child_toolbar"
         android:padding="10dp"

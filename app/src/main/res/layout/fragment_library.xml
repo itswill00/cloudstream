@@ -110,7 +110,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:animateLayoutChanges="true"
-        android:background="?attr/primaryBlackBackground"
+        android:background="?attr/glassScreenBackground"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <androidx.viewpager2.widget.ViewPager2
@@ -125,7 +125,7 @@
             android:id="@+id/library_loading_overlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="?attr/primaryBlackBackground"
+            android:background="?attr/glassScreenBackground"
             android:visibility="gone"
             tools:visibility="visible">
 
