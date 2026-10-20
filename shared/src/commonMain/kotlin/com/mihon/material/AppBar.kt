@@ -1,9 +1,13 @@
 package com.mihon.material
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -17,10 +21,12 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.lagradost.cloudstream4.compose.glass.LocalGlassStyle
 import com.lagradost.cloudstream4.generated.resources.Res
 import com.lagradost.cloudstream4.generated.resources.action_bar_up_description
 import com.lagradost.cloudstream4.generated.resources.arrow_back
@@ -96,6 +102,7 @@ fun AppBar(
 
     scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
+    val glass = LocalGlassStyle.current
     Column(
         modifier = modifier,
     ) {
@@ -121,12 +128,30 @@ fun AppBar(
             title = titleContent,
             actions = actions,
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = backgroundColor ?: MaterialTheme.colorScheme.surfaceColorAtElevation(
-                    elevation = if (isActionMode) 3.dp else 0.dp,
-                ),
+                containerColor = when {
+                    backgroundColor != null -> backgroundColor
+                    // The glass is translucent, the background shows through it
+                    glass.enabled -> glass.tint
+                    else -> MaterialTheme.colorScheme.surfaceColorAtElevation(
+                        elevation = if (isActionMode) 3.dp else 0.dp,
+                    )
+                },
             ),
             scrollBehavior = scrollBehavior,
         )
+        if (glass.enabled) {
+            // The light that hits the bottom edge of the glass
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(glass.border, glass.border.copy(alpha = 0f))
+                        )
+                    )
+            )
+        }
     }
 }
 
