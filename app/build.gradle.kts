@@ -97,9 +97,16 @@ val (gitDir, gitCommonDir) = run {
 }
 
 val generateGitHash = tasks.register<GenerateGitHashTask>("generateGitHash") {
-    headFile.set(gitDir.resolve("HEAD"))
-    refsDir.set(gitCommonDir.resolve("refs"))
-    packedRefsFile.set(gitCommonDir.resolve("packed-refs"))
+    // Only the files that exist are set, a checkout without packed refs or
+    // without a refs directory is fine.
+    val head = gitDir.resolve("HEAD")
+    if (head.exists()) headFile.set(head)
+
+    val refs = gitCommonDir.resolve("refs")
+    if (refs.exists()) refsDir.set(refs)
+
+    val packedRefs = gitCommonDir.resolve("packed-refs")
+    if (packedRefs.exists()) packedRefsFile.set(packedRefs)
 
     outputDir.set(layout.buildDirectory.dir("generated/git"))
 }
