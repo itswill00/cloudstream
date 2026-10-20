@@ -235,43 +235,47 @@ class HomeViewModel : ViewModel() {
         if (lock.contains(name)) return null
         lock += name
 
-        repo?.apply {
-            waitForHomeDelay()
+        try {
+            repo?.apply {
+                waitForHomeDelay()
 
-            expandable[name]?.let { current ->
-                debugAssert({ !current.hasNext }) {
-                    "Expand called when not needed"
-                }
+                expandable[name]?.let { current ->
+                    debugAssert({ !current.hasNext }) {
+                        "Expand called when not needed"
+                    }
 
-                val nextPage = current.currentPage + 1
-                val next = getMainPage(nextPage, mainPage.indexOfFirst { it.name == name })
-                if (next is Resource.Success) {
-                    next.value.filterNotNull().forEach { main ->
-                        main.items.forEach { newList ->
-                            val key = newList.name
-                            expandable[key]?.apply {
-                                hasNext = main.hasNext
-                                currentPage = nextPage
+                    val nextPage = current.currentPage + 1
+                    val next = getMainPage(nextPage, mainPage.indexOfFirst { it.name == name })
+                    if (next is Resource.Success) {
+                        next.value.filterNotNull().forEach { main ->
+                            main.items.forEach { newList ->
+                                val key = newList.name
+                                expandable[key]?.apply {
+                                    hasNext = main.hasNext
+                                    currentPage = nextPage
 
-                                debugWarning({ newList.list.any { outer -> this.list.list.any { it.url == outer.url } } }) {
-                                    "Expanded contained an item that was previously already in the list\n${list.name} = ${this.list.list}\n${newList.name} = ${newList.list}"
+                                    debugWarning({ newList.list.any { outer -> this.list.list.any { it.url == outer.url } } }) {
+                                        "Expanded contained an item that was previously already in the list\n${list.name} = ${this.list.list}\n${newList.name} = ${newList.list}"
+                                    }
+
+                                    this.list.list += newList.list
+                                    this.list.list.distinctBy { it.url } // just to be sure we are not adding the same shit for some reason
+                                } ?: debugWarning {
+                                    "Expanded an item not in main load named $key, current list is ${expandable.keys}"
                                 }
-
-                                this.list.list += newList.list
-                                this.list.list.distinctBy { it.url } // just to be sure we are not adding the same shit for some reason
-                            } ?: debugWarning {
-                                "Expanded an item not in main load named $key, current list is ${expandable.keys}"
                             }
                         }
+                    } else {
+                        current.hasNext = false
                     }
-                } else {
-                    current.hasNext = false
                 }
+                _page.postValue(Resource.Success(expandable))
             }
-            _page.postValue(Resource.Success(expandable))
+        } finally {
+            // The lock has to be released, even if the provider throws,
+            // otherwise the row can never be expanded again
+            lock -= name
         }
-
-        lock -= name
 
         return expandable[name]
     }
