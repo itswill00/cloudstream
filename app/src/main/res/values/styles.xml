@@ -81,6 +81,9 @@
         <item name="glassDialogBackground">@drawable/dialog__window_background</item>
         <item name="glassSheetBackground">@drawable/rounded_dialog</item>
         <item name="glassSheetTint">?attr/primaryBlackBackground</item>
+        <item name="glassWindowBackground">?attr/primaryBlackBackground</item>
+        <item name="glassNavigationBarColor">?attr/primaryGrayBackground</item>
+        <item name="glassPlayerBarBackground">@null</item>
         <item name="isGlassTheme">false</item>
     </style>
 
@@ -251,7 +254,7 @@
         <item name="primaryGrayBackground">@color/LiquidGlassPrimaryGrayBackground</item>
         <item name="primaryBlackBackground">@color/LiquidGlassBitDarkerGrayBackground</item>
         <item name="iconGrayBackground">@color/LiquidGlassGrayBackground</item>
-        <item name="boxItemBackground">@color/LiquidGlassItemBackground</item>
+        <item name="boxItemBackground">@color/LiquidGlassItemBackgroundGlass</item>
         <item name="textColor">@color/LiquidGlassTextColor</item>
         <item name="grayTextColor">@color/LiquidGlassGrayTextColor</item>
         <item name="iconColor">@color/LiquidGlassIconColor</item>
@@ -265,6 +268,9 @@
         <item name="glassDialogBackground">@drawable/liquid_glass_dialog</item>
         <item name="glassSheetBackground">@drawable/liquid_glass_sheet</item>
         <item name="glassSheetTint">@android:color/transparent</item>
+        <item name="glassWindowBackground">@drawable/liquid_glass_content</item>
+        <item name="glassNavigationBarColor">@android:color/transparent</item>
+        <item name="glassPlayerBarBackground">@drawable/liquid_glass_player_bar</item>
         <item name="isGlassTheme">true</item>
     </style>
 
@@ -489,8 +495,8 @@
     </style>
 
     <style name="LoadedStyle">
-        <item name="android:navigationBarColor">?attr/primaryGrayBackground</item>
-        <item name="android:windowBackground">?attr/primaryBlackBackground</item>
+        <item name="android:navigationBarColor">?attr/glassNavigationBarColor</item>
+        <item name="android:windowBackground">?attr/glassWindowBackground</item>
     </style>
 
     <style name="AndroidSearchView" parent="AppSearchViewStyle">

@@ -128,6 +128,8 @@
     <color name="LiquidGlassBitDarkerGrayBackground">#0A0B11</color>
     <color name="LiquidGlassGrayBackground">#12151D</color>
     <color name="LiquidGlassItemBackground">#1D2130</color>
+    <!-- The items are translucent, the background of the app shows through -->
+    <color name="LiquidGlassItemBackgroundGlass">#9915171F</color>
     <color name="LiquidGlassTextColor">#EFF1F8</color>
     <color name="LiquidGlassGrayTextColor">#9AA1B5</color>
     <color name="LiquidGlassIconColor">#A7AEC2</color>
