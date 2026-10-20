@@ -43,6 +43,7 @@ fun PreferenceScreen(
     LazyColumn(
         modifier = modifier,
         state = state,
+        // The items scroll under the app bar, it blurs them
         contentPadding = contentPadding,
     ) {
         items.fastForEachIndexed { i, preference ->

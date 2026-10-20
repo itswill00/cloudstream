@@ -12,6 +12,9 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import com.mihon.material.AppBar
 import com.mihon.material.Scaffold
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 @Composable
 fun PreferenceScaffold(
@@ -21,6 +24,8 @@ fun PreferenceScaffold(
     itemsProvider: @Composable () -> List<Preference>,
 ) {
     val (top, bottom) = remember { FocusRequester.createRefs() }
+    // The content scrolls under the app bar, the app bar blurs it
+    val hazeState = rememberHazeState()
 
     Scaffold(
         // TODO @WindowInsets remove this when we have converted everything to compose
@@ -34,13 +39,16 @@ fun PreferenceScaffold(
                 navigateUp = onBackPressed,
                 actions = actions,
                 scrollBehavior = it,
+                hazeState = hazeState,
             )
         },
         content = { contentPadding ->
             PreferenceScreen(
-                modifier = Modifier.focusRequester(bottom).focusProperties {
-                    up = top
-                },
+                modifier = Modifier
+                    .focusRequester(bottom).focusProperties {
+                        up = top
+                    }
+                    .hazeSource(hazeState),
                 items = itemsProvider(),
                 contentPadding = contentPadding,
             )
