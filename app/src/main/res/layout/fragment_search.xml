@@ -123,7 +123,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
 
-        android:background="?attr/primaryBlackBackground"
+        android:background="?attr/glassScreenBackground"
         android:clipToPadding="false"
         android:descendantFocusability="afterDescendants"
         android:nextFocusLeft="@id/nav_rail_view"
@@ -140,7 +140,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
 
-        android:background="?attr/primaryBlackBackground"
+        android:background="?attr/glassScreenBackground"
         android:descendantFocusability="afterDescendants"
 
         android:nextFocusLeft="@id/nav_rail_view"
@@ -152,7 +152,7 @@
         android:id="@+id/search_history_recycler"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?attr/primaryBlackBackground"
+        android:background="?attr/glassScreenBackground"
         android:descendantFocusability="afterDescendants"
         android:nextFocusLeft="@id/nav_rail_view"
         android:nextFocusUp="@id/tvtypes_chips"

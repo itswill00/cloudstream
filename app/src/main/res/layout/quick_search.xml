@@ -82,7 +82,7 @@
 
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?attr/primaryBlackBackground"
+        android:background="?attr/glassScreenBackground"
         android:descendantFocusability="afterDescendants"
         tools:listitem="@layout/homepage_parent" />
 
@@ -91,7 +91,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
 
-        android:background="?attr/primaryBlackBackground"
+        android:background="?attr/glassScreenBackground"
         android:clipToPadding="false"
         android:descendantFocusability="afterDescendants"
         android:nextFocusLeft="@id/nav_rail_view"
