@@ -60,7 +60,7 @@ Flags:
 | `--cc` | Enable the Gradle configuration cache. |
 | `--jobs N` | Limit Gradle worker parallelism (`--max-workers`). |
 | `--flavor <f>` | Flavour to build, `prerelease` or `stable` (default `prerelease`). |
-| `--abi <abi>` | Build for a single architecture, e.g. `arm64-v8a`. The APK is a lot smaller, that is needed to send it to a test device. |
+| `--abi <abi>` | Architecture of the build, `arm64-v8a` by default. Use `all` for every architecture, that makes the APK a lot bigger. |
 | `--no-sign` | Do not load the signing key, the APK stays unsigned. |
 | `--no-build` | Do not build, only do what `--send` asks for. |
 | `--send` | Upload the APK to the test group on Telegram. |
@@ -77,13 +77,15 @@ Environment overrides: `REPO_DIR`, `ANDROID_HOME` / `ANDROID_SDK_ROOT`,
 
 ### A smaller APK for a test device
 
-An APK with every architecture is around 73 MB, a single architecture build is
-around 45 MB. The Telegram API refuses anything above 50 MB, so a test build
-should always be limited to one architecture:
+An APK with every architecture is around 73 MB, a build for arm64 is around
+45 MB. The Telegram API refuses anything above 50 MB, so a test build is
+always limited to one architecture. `build.sh` does that by default, arm64 is
+the architecture of the devices that are used:
 
 ```bash
-./build.sh release --abi arm64-v8a        # most modern phones and TV boxes
-./build.sh release --abi armeabi-v7a      # older 32 bit devices
+./build.sh release --send                    # arm64-v8a, the default
+./build.sh release --abi armeabi-v7a --send  # older 32 bit devices
+./build.sh release --abi all                 # every architecture, 73 MB
 ```
 
 `build.sh` does this for you and uploads the APK to the test group with
@@ -99,8 +101,8 @@ that only exist in the upstream organisation, so every run failed here.
 
 ```bash
 ./build.sh check                          # lint, unit tests, ABI check
-./build.sh release --abi arm64-v8a        # build a signed APK
-./build.sh release --abi arm64-v8a --send # build it and send it to the group
+./build.sh release                          # build a signed APK for arm64
+./build.sh release --send                   # build it and send it to the group
 ```
 
 The test build is uploaded to the test group on Telegram, tested on a device
