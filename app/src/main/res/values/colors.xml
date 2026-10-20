@@ -122,4 +122,22 @@
     <color name="colorTestFail">#ea596e</color>
     <color name="colorTestWarning">#FF9800</color>
     <color name="playIconBackground">#B3000000</color>
+
+    <!-- Liquid Glass theme -->
+    <color name="LiquidGlassPrimaryGrayBackground">#191C27</color>
+    <color name="LiquidGlassBitDarkerGrayBackground">#0A0B11</color>
+    <color name="LiquidGlassGrayBackground">#12151D</color>
+    <color name="LiquidGlassItemBackground">#1D2130</color>
+    <color name="LiquidGlassTextColor">#EFF1F8</color>
+    <color name="LiquidGlassGrayTextColor">#9AA1B5</color>
+    <color name="LiquidGlassIconColor">#A7AEC2</color>
+
+    <!-- The glass itself, the surfaces are translucent so that the background
+         shows through them -->
+    <color name="glassTint">#14FFFFFF</color>
+    <color name="glassTintStrong">#26FFFFFF</color>
+    <color name="glassEdge">#59FFFFFF</color>
+    <color name="glassEdgeFaint">#1FFFFFFF</color>
+    <color name="glassAccent">#3D50FA</color>
+    <color name="glassAccentTwo">#64FFDA</color>
 </resources>

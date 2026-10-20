@@ -35,6 +35,9 @@ enum class CloudStreamThemeMode {
     /** "SilentBlue" */
     SilentBlue,
 
+    /** "LiquidGlass", translucent surfaces over a background with soft colors */
+    LiquidGlass,
+
     /** "System" resolved on each platform via [isSystemInDarkTheme] */
     FollowSystem,
 
@@ -60,6 +63,7 @@ fun modeToTheme(mode : CloudStreamThemeMode, primaryColor: CloudStreamPrimaryCol
             CloudStreamThemeMode.Dracula -> draculaScheme()
             CloudStreamThemeMode.Lavender -> lavenderScheme()
             CloudStreamThemeMode.SilentBlue -> silentBlueScheme()
+            CloudStreamThemeMode.LiquidGlass -> liquidGlassScheme()
             CloudStreamThemeMode.FollowSystem -> if (systemDark) darkScheme() else lightScheme()
             CloudStreamThemeMode.Dynamic -> dynamicTheme
         }

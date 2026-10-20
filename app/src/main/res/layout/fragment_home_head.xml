@@ -5,7 +5,7 @@
     android:id="@+id/home_header"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="?attr/primaryBlackBackground"
+    android:background="?attr/glassHeaderBackground"
     android:orientation="vertical">
 
     <View

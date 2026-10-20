@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The header at the top of the home screen. The soft colored blobs are the
+     background that the glass reflects, without them the glass does not look
+     like anything. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:centerColor="#1A3D50FA"
+                android:endColor="#000A0B11"
+                android:startColor="#4D5B6BFF"
+                android:type="linear" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:centerX="0.8"
+                android:centerY="0.1"
+                android:endColor="#0064FFDA"
+                android:gradientRadius="55%p"
+                android:startColor="#3364FFDA"
+                android:type="radial" />
+        </shape>
+    </item>
+    <item
+        android:gravity="bottom"
+        android:height="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#1AFFFFFF" />
+        </shape>
+    </item>
+</layer-list>

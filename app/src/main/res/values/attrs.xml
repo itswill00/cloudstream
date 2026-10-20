@@ -77,4 +77,11 @@
         <attr name="cropYCenterOffsetPct" format="float" />
         <attr name="cropXCenterOffsetPct" format="float" />
     </declare-styleable>
+
+    <!-- The background of the navigation bar and the navigation rail, the
+         Liquid Glass theme uses a translucent surface there -->
+    <attr name="glassBottomBackground" format="reference" />
+    <attr name="glassSideBackground" format="reference" />
+    <!-- The background of the header at the top of the home screen -->
+    <attr name="glassHeaderBackground" format="reference" />
 </resources>
