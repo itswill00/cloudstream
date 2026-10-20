@@ -52,6 +52,7 @@ object SettingsGeneralScreen : SearchableSettings {
     @Composable
     override fun getPreferences(): List<Preference> {
         val settings = rememberAppSettings()
+        val githubRepoUrl = stringResource(R.string.github_repo_url)
 
         // TODO Refactor entirely to use a different file path selector ect like QuickNovel
         val selectFileSelector =
@@ -246,10 +247,10 @@ object SettingsGeneralScreen : SearchableSettings {
                 preferenceItems = persistentListOf(
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(R.string.github),
-                        subtitle = "https://github.com/recloudstream/cloudstream",
+                        subtitle = stringResource(R.string.github_repo_url),
                         icon = painterResource(R.drawable.ic_github_logo),
                         onClick = {
-                            CloudStreamApp.openBrowser("https://github.com/recloudstream/cloudstream")
+                            CloudStreamApp.openBrowser(githubRepoUrl)
                         }
                     ),
                     Preference.PreferenceItem.TextPreference(
