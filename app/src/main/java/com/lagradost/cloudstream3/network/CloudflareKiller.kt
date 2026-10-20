@@ -24,7 +24,9 @@ class CloudflareKiller : Interceptor {
         private val CLOUDFLARE_SERVERS = listOf("cloudflare-nginx", "cloudflare")
         fun parseCookieMap(cookie: String): Map<String, String> {
             return cookie.split(";").associate {
-                val split = it.split("=")
+                // The value of a cookie can contain a =, only the first one
+                // separates the name from the value
+                val split = it.split("=", limit = 2)
                 (split.getOrNull(0)?.trim() ?: "") to (split.getOrNull(1)?.trim() ?: "")
             }.filter { it.key.isNotBlank() && it.value.isNotBlank() }
         }
