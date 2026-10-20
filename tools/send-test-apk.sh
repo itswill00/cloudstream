@@ -24,8 +24,8 @@
 #    TELEGRAM_BOT_TOKEN=123456:ABCDEF
 #    TELEGRAM_CHAT_ID=-1001234567890
 #
-#  The build is limited to a single architecture, that keeps the APK below the
-#  50 MB upload limit of the Telegram API.
+#  The build is done by build.sh, it is limited to a single architecture, that
+#  keeps the APK below the 50 MB upload limit of the Telegram API.
 # =============================================================================
 set -uo pipefail
 
@@ -74,21 +74,15 @@ export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
 export ANDROID_HOME="${ANDROID_HOME:-/root/android-sdk}"
 export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
 
-# The release key, if it is available, so that the test build can be installed
-# over the previous one and can be updated to the real release later.
-if [ -f /root/keys/env.sh ] && [ -z "${SIGNING_KEY_ALIAS:-}" ]; then
-  # shellcheck disable=SC1091
-  source /root/keys/env.sh
-fi
-
 cd "$REPO_DIR" || die "cannot enter $REPO_DIR"
 
 APK="app/build/outputs/apk/$FLAVOR/release/app-$FLAVOR-release.apk"
 
 if [ $DO_BUILD -eq 1 ]; then
   say "building $FLAVOR for $ABI ..."
-  if ! ./gradlew ":app:assemble${FLAVOR^}Release" -PtargetAbi="$ABI" --console=plain -q; then
-    die "build failed"
+  # build.sh checks the environment, loads the signing key and writes the log
+  if ! ./build.sh release --flavor "$FLAVOR" --abi "$ABI"; then
+    die "build failed, see the log in ${BUILD_LOG_DIR:-/root/build-logs}"
   fi
   ok "build finished"
 else
