@@ -158,6 +158,18 @@ android {
             (project.findProperty("updateRepoName") as String?) ?: "cloudstream"
         buildConfigField("String", "UPDATE_REPO_OWNER", "\"$updateRepoOwner\"")
         buildConfigField("String", "UPDATE_REPO_NAME", "\"$updateRepoName\"")
+
+        /**
+         * Limit the architectures of the build, e.g. -PtargetAbi=arm64-v8a.
+         * A single architecture makes the APK a lot smaller, which is needed to
+         * send it to a test device.
+         */
+        val targetAbi = (project.findProperty("targetAbi") as String?)
+        if (targetAbi != null) {
+            ndk {
+                abiFilters += targetAbi
+            }
+        }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
