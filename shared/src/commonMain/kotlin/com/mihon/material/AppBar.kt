@@ -1,6 +1,7 @@
 package com.mihon.material
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,8 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -21,6 +24,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
@@ -314,27 +318,51 @@ fun SearchToolbar(
                 visualTransformation = visualTransformation,
                 interactionSource = interactionSource,
                 decorationBox = { innerTextField ->
-                    TextFieldDefaults.DecorationBox(
-                        value = searchQuery,
-                        innerTextField = innerTextField,
-                        enabled = true,
-                        singleLine = true,
-                        visualTransformation = visualTransformation,
-                        interactionSource = interactionSource,
-                        placeholder = {
-                            Text(
-                                modifier = Modifier.secondaryItemAlpha(),
-                                text = (placeholderText ?: stringResource(MR.strings.action_search_hint)),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Normal,
-                                ),
+                    val glass = LocalGlassStyle.current
+                    val searchShape = RoundedCornerShape(24.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (glass.enabled) {
+                                    Modifier
+                                        .clip(searchShape)
+                                        .background(glass.tint)
+                                        .border(
+                                            width = 1.dp,
+                                            brush = Brush.linearGradient(
+                                                listOf(glass.border, glass.border.copy(alpha = 0f))
+                                            ),
+                                            shape = searchShape,
+                                        )
+                                } else {
+                                    Modifier
+                                }
                             )
-                        },
-                        container = {},
-                    )
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        TextFieldDefaults.DecorationBox(
+                            value = searchQuery,
+                            innerTextField = innerTextField,
+                            enabled = true,
+                            singleLine = true,
+                            visualTransformation = visualTransformation,
+                            interactionSource = interactionSource,
+                            placeholder = {
+                                Text(
+                                    modifier = Modifier.secondaryItemAlpha(),
+                                    text = (placeholderText ?: stringResource(MR.strings.action_search_hint)),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Normal,
+                                    ),
+                                )
+                            },
+                            container = {},
+                        )
+                    }
                 },
             )
         },
