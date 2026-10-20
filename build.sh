@@ -5,7 +5,8 @@
 #  Usage:
 #    ./build.sh                     # default: prerelease debug APK
 #    ./build.sh debug               # prerelease debug APK
-#    ./build.sh release             # prerelease release APK (unsigned w/o keystore)
+#    ./build.sh release             # prerelease release APK
+#    ./build.sh stable              # stable release APK
 #    ./build.sh all                 # debug + release
 #    ./build.sh desktop             # Kotlin Multiplatform desktop app
 #    ./build.sh <gradle-task...>    # arbitrary gradle task
@@ -17,10 +18,16 @@
 #    --no-daemon      gradle --no-daemon
 #    --cc             enable gradle configuration cache (default: disabled)
 #    --jobs N         set gradle worker parallelism
+#    --flavor <f>     flavour to build: prerelease or stable (default: prerelease)
+#    --abi <abi>      build for a single architecture, e.g. arm64-v8a.
+#                     The APK is a lot smaller, that is needed to send it to a
+#                     test device.
+#    --no-sign        do not load the signing key, the APK stays unsigned
 #    -h|--help        show help
 #
 #  Env overrides:
-#    REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR
+#    REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR,
+#    KEYS_ENV_FILE (file with SIGNING_KEY_ALIAS and the passwords)
 # =============================================================================
 set -uo pipefail
 
@@ -58,10 +65,14 @@ cat <<'USAGE'
    --no-daemon      gradle --no-daemon
    --cc             enable gradle configuration cache
    --jobs N         set gradle worker parallelism
+   --flavor <f>     flavour to build: prerelease or stable (default: prerelease)
+   --abi <abi>      build for a single architecture, e.g. arm64-v8a
+   --no-sign        do not load the signing key, the APK stays unsigned
    -h|--help        show this help
 
  Env overrides:
-   REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR
+   REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR,
+   KEYS_ENV_FILE (file with SIGNING_KEY_ALIAS and the passwords)
 =============================================================================
 USAGE
 }
@@ -73,6 +84,7 @@ die()  { printf '%s[fail]%s %s\n' "$c_red" "$c_reset" "$*"; exit 1; }
 
 # --------------------------- arg parsing ------------------------------------
 TASKS=(); DO_INSTALL=0; DO_CLEAN=0; OFFLINE=0; NO_DAEMON=0; USE_CC=0; JOBS=""
+FLAVOR="prerelease"; ABI=""; NO_SIGN=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --install)   DO_INSTALL=1 ;;
@@ -81,20 +93,29 @@ while [ $# -gt 0 ]; do
     --no-daemon) NO_DAEMON=1 ;;
     --cc)        USE_CC=1 ;;
     --jobs)      JOBS="${2:-}"; shift ;;
+    --flavor)    FLAVOR="${2:-}"; shift ;;
+    --abi)       ABI="${2:-}"; shift ;;
+    --no-sign)   NO_SIGN=1 ;;
     -h|--help)   usage; exit 0 ;;
     *)           TASKS+=("$1") ;;
   esac
   shift
 done
 
+case "$FLAVOR" in
+  prerelease|stable) ;;
+  *) die "unknown flavor: $FLAVOR (use prerelease or stable)" ;;
+esac
+
 # default task set
 if [ ${#TASKS[@]} -eq 0 ]; then TASKS=("debug"); fi
 resolve_target() {
+  local flavor="${FLAVOR^}" # Prerelease or Stable
   case "$1" in
-    debug)   echo "assemblePrereleaseDebug" ;;
-    release) echo "assemblePrereleaseRelease" ;;
+    debug)   echo "assemble${flavor}Debug" ;;
+    release) echo "assemble${flavor}Release" ;;
     stable)  echo "assembleStableRelease" ;;
-    all)     echo "assemblePrereleaseDebug assemblePrereleaseRelease" ;;
+    all)     echo "assemble${flavor}Debug assemble${flavor}Release" ;;
     desktop) echo ":desktopApp:build" ;;
     *)       echo "$1" ;;
   esac
@@ -172,6 +193,30 @@ preflight() {
     warn "platform android-$API_LEVEL belum ada (butuh --install)"
   fi
 
+  # signing key
+  if [ $NO_SIGN -eq 1 ]; then
+    say "signing    : disabled (--no-sign)"
+  elif [ -n "${SIGNING_KEY_ALIAS:-}" ]; then
+    ok "signing    : key '$SIGNING_KEY_ALIAS' from the environment"
+  else
+    local keys_env="${KEYS_ENV_FILE:-/root/keys/env.sh}"
+    if [ -f "$keys_env" ]; then
+      # shellcheck disable=SC1090
+      source "$keys_env"
+      ok "signing    : key '${SIGNING_KEY_ALIAS:-?}' from $keys_env"
+    else
+      warn "signing    : no key found ($keys_env), the APK stays unsigned"
+    fi
+  fi
+  if [ $NO_SIGN -eq 0 ] && [ -n "${SIGNING_KEY_ALIAS:-}" ]; then
+    local keystore_dir="$HOME/work/_temp/keystore"
+    if ls "$keystore_dir"/*.jks >/dev/null 2>&1; then
+      ok "keystore   : $(ls "$keystore_dir"/*.jks | head -1)"
+    else
+      warn "keystore   : no .jks in $keystore_dir, the APK stays unsigned"
+    fi
+  fi
+
   # local.properties
   local lp="$REPO_DIR/local.properties"
   if ! grep -q '^sdk.dir=' "$lp" 2>/dev/null; then
@@ -194,6 +239,7 @@ run_gradle() {
   [ $USE_CC -eq 1 ]    && args+=(--configuration-cache)
   [ -n "$JOBS" ]       && args+=(--max-workers="$JOBS")
   [ $DO_CLEAN -eq 1 ]  && args+=(clean)
+  [ -n "$ABI" ]        && args+=("-PtargetAbi=$ABI")
 
   say "gradle    : ./gradlew ${args[*]} $*"
   printf '\n%s=== build start %s ===%s\n' "$c_dim" "$(date '+%F %T')" "$c_reset" >> "$log"
@@ -242,6 +288,8 @@ main() {
   local log="$LOG_DIR/build-$stamp.log"
 
   say "tasks     : ${GRADLE_TASKS[*]}"
+  say "flavor    : $FLAVOR"
+  [ -n "$ABI" ] && say "abi       : $ABI"
   say "log file  : $log"
   echo
 

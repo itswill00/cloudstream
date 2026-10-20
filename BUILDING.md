@@ -58,6 +58,9 @@ Flags:
 | `--no-daemon` | Do not reuse the Gradle daemon. |
 | `--cc` | Enable the Gradle configuration cache. |
 | `--jobs N` | Limit Gradle worker parallelism (`--max-workers`). |
+| `--flavor <f>` | Flavour to build, `prerelease` or `stable` (default `prerelease`). |
+| `--abi <abi>` | Build for a single architecture, e.g. `arm64-v8a`. The APK is a lot smaller, that is needed to send it to a test device. |
+| `--no-sign` | Do not load the signing key, the APK stays unsigned. |
 
 The script prints the build output live and additionally stores it in
 `/root/build-logs/build-<timestamp>.log` (override with `BUILD_LOG_DIR`). On
@@ -65,7 +68,21 @@ failure it extracts the `FAILURE:` / `* What went wrong` section from the log.
 On success it lists the produced APKs with size, version name and SHA-256.
 
 Environment overrides: `REPO_DIR`, `ANDROID_HOME` / `ANDROID_SDK_ROOT`,
-`JAVA_HOME`, `BUILD_LOG_DIR`.
+`JAVA_HOME`, `BUILD_LOG_DIR`, `KEYS_ENV_FILE`.
+
+### A smaller APK for a test device
+
+An APK with every architecture is around 73 MB, a single architecture build is
+around 45 MB. The Telegram API refuses anything above 50 MB, so a test build
+should always be limited to one architecture:
+
+```bash
+./build.sh release --abi arm64-v8a        # most modern phones and TV boxes
+./build.sh release --abi armeabi-v7a      # older 32 bit devices
+```
+
+`tools/send-test-apk.sh` does this for you and uploads the APK to the test
+group, see [RELEASING.md](RELEASING.md).
 
 ## Manual build
 
@@ -101,6 +118,10 @@ environment, mirroring the release workflow:
 The keystore is read from `$HOME/work/_temp/keystore/`. Without these variables
 the release variant still builds, but the resulting APK is **unsigned** and cannot
 be installed without re-signing.
+
+`build.sh` loads those variables itself when they are not set yet, from the file
+in `KEYS_ENV_FILE` (`/root/keys/env.sh` by default). Use `--no-sign` to skip
+that and build without a key.
 
 Optional API keys are read from the environment or from `local.properties`:
 
