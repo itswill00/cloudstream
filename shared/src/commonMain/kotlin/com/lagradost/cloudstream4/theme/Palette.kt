@@ -81,4 +81,13 @@ internal object CloudStreamPalette {
     val SilentBlueText = Color(0xFFE0E1F3)
     val SilentBlueGrayText = Color(0xFF7B83B0)
     val SilentBlueIcon = Color(0xFF7B83B0)
+
+    // Liquid Glass
+    val LiquidGlassPrimaryGrayBg = Color(0xFF191C27)
+    val LiquidGlassBlackBg = Color(0xFF0A0B11)
+    val LiquidGlassIconGrayBg = Color(0xFF12151D)
+    val LiquidGlassBoxItemBg = Color(0xFF1D2130)
+    val LiquidGlassText = Color(0xFFEFF1F8)
+    val LiquidGlassGrayText = Color(0xFF9AA1B5)
+    val LiquidGlassIcon = Color(0xFFA7AEC2)
 }

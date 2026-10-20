@@ -73,6 +73,11 @@
         <item name="download_icon_scale">1.0</item>
 
         <item name="cpv_focusBorderColor">?attr/white</item>
+
+        <!-- The glass surfaces, the other themes use the plain background -->
+        <item name="glassBottomBackground">?attr/primaryGrayBackground</item>
+        <item name="glassSideBackground">?attr/primaryGrayBackground</item>
+        <item name="glassHeaderBackground">?attr/primaryBlackBackground</item>
     </style>
 
     <style name="AppThemeTvOverlay">
@@ -234,6 +239,25 @@
         <item name="white">@color/material_dynamic_neutral90</item>
         <item name="black">@color/material_dynamic_neutral10</item>
         <item name="colorOnPrimary">@color/material_on_primary_emphasis_medium</item>
+    </style>
+
+    <!-- Liquid Glass, the surfaces are translucent and the background has soft
+         colored blobs in it, that is what the glass reflects -->
+    <style name="LiquidGlassMode">
+        <item name="primaryGrayBackground">@color/LiquidGlassPrimaryGrayBackground</item>
+        <item name="primaryBlackBackground">@color/LiquidGlassBitDarkerGrayBackground</item>
+        <item name="iconGrayBackground">@color/LiquidGlassGrayBackground</item>
+        <item name="boxItemBackground">@color/LiquidGlassItemBackground</item>
+        <item name="textColor">@color/LiquidGlassTextColor</item>
+        <item name="grayTextColor">@color/LiquidGlassGrayTextColor</item>
+        <item name="iconColor">@color/LiquidGlassIconColor</item>
+        <item name="white">@color/LiquidGlassTextColor</item>
+        <item name="black">@color/LiquidGlassPrimaryGrayBackground</item>
+        <item name="colorOnPrimary">@color/LiquidGlassTextColor</item>
+
+        <item name="glassBottomBackground">@drawable/liquid_glass_surface</item>
+        <item name="glassSideBackground">@drawable/liquid_glass_surface_side</item>
+        <item name="glassHeaderBackground">@drawable/liquid_glass_header</item>
     </style>
 
     <style name="OverlayPrimaryColorNormal">

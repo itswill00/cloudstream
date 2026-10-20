@@ -16,6 +16,7 @@ fun perfToMode(perf: String?) =
         "Dracula" -> CloudStreamThemeMode.Dracula
         "Lavender" -> CloudStreamThemeMode.Lavender
         "SilentBlue" -> CloudStreamThemeMode.SilentBlue
+        "LiquidGlass" -> CloudStreamThemeMode.LiquidGlass
         "Monet" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             CloudStreamThemeMode.Dynamic
         } else {
