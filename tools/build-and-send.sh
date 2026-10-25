@@ -5,9 +5,14 @@
 # the keystore in ~/work/_temp/keystore, so both are prepared here instead of
 # being retyped on every build.
 #
-#   ./tools/build-and-send.sh              # release APK, sent to the group
+#   ./tools/build-and-send.sh              # release APK, Telegram + GitHub release
 #   ./tools/build-and-send.sh --no-send    # build only
 #   ./tools/build-and-send.sh debug        # debug APK instead
+#
+# The GitHub release is uploaded by default because the in app updater of the
+# prerelease flavour compares the commit of the installed build with the commit
+# of the pre-release tag. Without moving the tag every install keeps being told
+# to update.
 #
 # Everything after the known flags is passed straight to build.sh, so
 # --abi, --flavor, --config and the rest keep working.
@@ -39,10 +44,13 @@ export SIGNING_KEY_PASSWORD="$KEY_PASS"
 # gets tested on a device.
 MODE="release"
 SEND=1
+RELEASE=1
 ARGS=()
 for arg in "$@"; do
     case "$arg" in
         --no-send) SEND=0 ;;
+        --no-release) RELEASE=0 ;;
+        --release) RELEASE=1 ;;
         debug|release|stable|all|check) MODE="$arg" ;;
         *) ARGS+=("$arg") ;;
     esac
@@ -50,6 +58,7 @@ done
 
 CMD=("$REPO_DIR/build.sh" "$MODE")
 [ "$SEND" -eq 1 ] && CMD+=(--send)
+[ "$RELEASE" -eq 1 ] && CMD+=(--release)
 CMD+=("${ARGS[@]}")
 
 echo "[build-and-send] ${CMD[*]}"

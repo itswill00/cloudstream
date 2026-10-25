@@ -79,6 +79,8 @@ cat <<'USAGE'
    --no-sign        do not load the signing key, the APK stays unsigned
    --no-build       do not build, only upload the last build
    --send           upload the APK to the test group on Telegram
+   --release        upload the APK to the GitHub release and move the tag,
+                    the in app updater compares the tag with the installed commit
    --message <text> extra text for the caption of the upload
    --config <file>  file with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
    --dry-run        only show what would be done, do not change anything
@@ -99,7 +101,7 @@ die()  { printf '%s[fail]%s %s\n' "$c_red" "$c_reset" "$*"; exit 1; }
 
 # --------------------------- arg parsing ------------------------------------
 TASKS=(); DO_INSTALL=0; DO_CLEAN=0; OFFLINE=0; NO_DAEMON=0; USE_CC=0; JOBS=""
-FLAVOR="prerelease"; NO_SIGN=0; DO_BUILD=1; DO_SEND=0; DRY_RUN=0
+FLAVOR="prerelease"; NO_SIGN=0; DO_BUILD=1; DO_SEND=0; DO_RELEASE=0; DRY_RUN=0
 EXTRA_MESSAGE=""; TELEGRAM_CONFIG="${TELEGRAM_CONFIG:-/root/keys/telegram-bot.env}"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -113,6 +115,7 @@ while [ $# -gt 0 ]; do
     --no-sign)   NO_SIGN=1 ;;
     --no-build)  DO_BUILD=0 ;;
     --send)      DO_SEND=1 ;;
+    --release)   DO_RELEASE=1 ;;
     --message)   EXTRA_MESSAGE="${2:-}"; shift ;;
     --config)    TELEGRAM_CONFIG="$2"; shift ;;
     --dry-run)   DRY_RUN=1 ;;
@@ -531,6 +534,44 @@ notes_target() {
   ok "the description of the $RELEASE_TAG release is updated"
 }
 
+# --------------------------- github release ----------------------------------
+# The in app updater of the prerelease flavour does not compare version names,
+# it compares the commit of the installed build with the commit of the
+# pre-release tag. If the tag still points at an old commit, every install is
+# told to update, even when the installed APK is the newer one. Uploading the
+# APK and moving the tag keeps both sides in sync.
+release_upload() {
+  local apk
+  apk=$(newest_apk) || die "no APK found for the flavour $FLAVOR"
+  [ -n "$apk" ] || die "no APK found for the flavour $FLAVOR"
+
+  if [ "$NO_SIGN" -eq 1 ]; then
+    die "refusing to publish an unsigned APK, drop --no-sign"
+  fi
+
+  local commit name
+  commit=$(git rev-parse HEAD)
+  name=$(basename "$apk")
+
+  if [ $DRY_RUN -eq 1 ]; then
+    say "dry run, would upload $name to $RELEASE_SLUG and move $RELEASE_TAG to $commit"
+    return 0
+  fi
+
+  say "uploading $name to the $RELEASE_TAG release ..."
+  gh release upload "$RELEASE_TAG" "$apk" --clobber --repo "$RELEASE_SLUG" \
+    || die "could not upload the APK to the release"
+
+  # The tag has to point at the commit that was just built, that is what the
+  # updater compares against.
+  say "moving the $RELEASE_TAG tag to $commit ..."
+  gh api -X PATCH "repos/$RELEASE_SLUG/git/refs/tags/$RELEASE_TAG" \
+    -f sha="$commit" -F force=true >/dev/null \
+    || die "could not move the $RELEASE_TAG tag"
+
+  ok "the $RELEASE_TAG release now has $name at ${commit:0:7}"
+}
+
 # ------------------------------ main -----------------------------------------
 main() {
   # The notes do not need a build, they are only the description of a release
@@ -577,6 +618,11 @@ main() {
     echo
     say "writing the description of the $RELEASE_TAG release ..."
     notes_target
+  fi
+
+  if [ $DO_RELEASE -eq 1 ]; then
+    echo
+    release_upload
   fi
 
   return $rc
