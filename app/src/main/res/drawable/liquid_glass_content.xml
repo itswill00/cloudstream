@@ -1,42 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The background of the app in the Liquid Glass theme. The soft colored
-     blobs are what the glass reflects, without them the glass does not look
-     like anything. -->
+<!-- The background of the app in the Liquid Glass theme.
+
+     The content layer is a standard material, not glass. Liquid Glass belongs
+     to the functional layer, the controls and the navigation that float above
+     the content, so the background stays a plain dark surface and the glass is
+     left to the bars. A subtle wash of colour is kept near the top so the bars
+     have something to refract, without painting the whole screen. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <color android:color="@color/LiquidGlassBitDarkerGrayBackground" />
     </item>
-    <item>
+    <item
+        android:gravity="top"
+        android:height="320dp">
         <shape android:shape="rectangle">
             <gradient
-                android:centerX="0.15"
-                android:centerY="0.0"
-                android:endColor="#003D50FA"
-                android:gradientRadius="85%p"
-                android:startColor="#3D3D50FA"
-                android:type="radial" />
-        </shape>
-    </item>
-    <item>
-        <shape android:shape="rectangle">
-            <gradient
-                android:centerX="0.9"
-                android:centerY="0.1"
-                android:endColor="#0064FFDA"
-                android:gradientRadius="60%p"
-                android:startColor="#2664FFDA"
-                android:type="radial" />
-        </shape>
-    </item>
-    <item>
-        <shape android:shape="rectangle">
-            <gradient
-                android:centerX="0.5"
-                android:centerY="1.0"
-                android:endColor="#006C5CFF"
-                android:gradientRadius="70%p"
-                android:startColor="#1A6C5CFF"
-                android:type="radial" />
+                android:angle="270"
+                android:centerColor="#0F3D50FA"
+                android:endColor="#000A0B11"
+                android:startColor="#263D50FA"
+                android:type="linear" />
         </shape>
     </item>
 </layer-list>

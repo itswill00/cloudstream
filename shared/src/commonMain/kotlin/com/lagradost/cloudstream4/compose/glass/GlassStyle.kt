@@ -23,8 +23,11 @@ data class GlassStyle(
 
         val LiquidGlass = GlassStyle(
             enabled = true,
-            tint = Color.White.copy(alpha = 0.10f),
-            border = Color.White.copy(alpha = 0.24f),
+            // Apple's regular variant blurs and adjusts the luminosity of the
+            // background so text stays legible. A 10% white tint was too weak
+            // to do that, the text sat almost directly on the content.
+            tint = Color.White.copy(alpha = 0.18f),
+            border = Color.White.copy(alpha = 0.28f),
         )
     }
 }

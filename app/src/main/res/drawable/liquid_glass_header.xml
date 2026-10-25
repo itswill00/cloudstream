@@ -1,27 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The header at the top of the home screen. The soft colored blobs are the
-     background that the glass reflects, without them the glass does not look
-     like anything. -->
+<!-- The header at the top of the home screen.
+
+     It used to be three stacked gradients, which painted the whole top of the
+     screen blue and teal. The colour is now a single soft wash, because the
+     glass only needs a hint of colour to refract, and a strong tint made the
+     text on top of it hard to read. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
             <gradient
                 android:angle="270"
-                android:centerColor="#1A3D50FA"
+                android:centerColor="#0F3D50FA"
                 android:endColor="#000A0B11"
-                android:startColor="#4D5B6BFF"
+                android:startColor="#263D50FA"
                 android:type="linear" />
-        </shape>
-    </item>
-    <item>
-        <shape android:shape="rectangle">
-            <gradient
-                android:centerX="0.8"
-                android:centerY="0.1"
-                android:endColor="#0064FFDA"
-                android:gradientRadius="55%p"
-                android:startColor="#3364FFDA"
-                android:type="radial" />
         </shape>
     </item>
     <item
