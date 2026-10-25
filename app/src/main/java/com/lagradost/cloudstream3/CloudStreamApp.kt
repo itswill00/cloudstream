@@ -16,6 +16,7 @@ import com.lagradost.api.setContext
 import com.lagradost.cloudstream3.BuildConfig
 import com.lagradost.cloudstream3.mvvm.safe
 import com.lagradost.cloudstream3.mvvm.safeAsync
+import com.lagradost.cloudstream3.plugins.BuiltinRepositories
 import com.lagradost.cloudstream3.plugins.PluginManager
 import com.lagradost.cloudstream3.ui.settings.Globals.EMULATOR
 import com.lagradost.cloudstream3.ui.settings.Globals.TV
@@ -84,6 +85,10 @@ class CloudStreamApp : Application(), SingletonImageLoader.Factory {
         }
 
         AppDebug.isDebug = BuildConfig.DEBUG
+
+        // Register the repositories that ship with the app, this has to happen
+        // before anything reads RepositoryManager.PREBUILT_REPOSITORIES
+        BuiltinRepositories.install(this)
     }
 
     override fun attachBaseContext(base: Context?) {
