@@ -226,3 +226,14 @@ fabric.properties
 !/gradle/wrapper/gradle-wrapper.jar
 
 # End of https://www.toptal.com/developers/gitignore/api/kotlin,java,android,androidstudio,visualstudiocode
+
+### Secrets ###
+# Credentials must never be committed, build.sh reads them from a file outside
+# the repository (see TELEGRAM_CONFIG in BUILDING.md)
+.env
+.env.*
+*.env
+!.env.example
+telegram-bot.env
+**/keys/*.env
+local.properties
