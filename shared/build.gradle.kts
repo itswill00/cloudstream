@@ -29,6 +29,8 @@ kotlin {
             languageSettings {
                 optIn("com.lagradost.cloudstream3.InternalAPI")
                 optIn("com.lagradost.cloudstream3.Prerelease")
+                // The glass effects of Haze are still marked experimental
+                optIn("dev.chrisbanes.haze.ExperimentalHazeApi")
             }
         }
 

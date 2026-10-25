@@ -10,11 +10,10 @@ import androidx.compose.ui.focus.FocusRequester.Companion.FocusRequesterFactory.
 import androidx.compose.ui.focus.FocusRequester.Companion.FocusRequesterFactory.component2
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import com.lagradost.cloudstream4.compose.glass.LocalHazeState
 import com.mihon.material.AppBar
 import com.mihon.material.Scaffold
-import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 
 @Composable
 fun PreferenceScaffold(
@@ -24,8 +23,9 @@ fun PreferenceScaffold(
     itemsProvider: @Composable () -> List<Preference>,
 ) {
     val (top, bottom) = remember { FocusRequester.createRefs() }
-    // The content scrolls under the app bar, the app bar blurs it
-    val hazeState = rememberHazeState()
+    // The content scrolls under the app bar, the app bar blurs it. The state is
+    // the app wide one, so the app bar and this source always agree on it.
+    val hazeState = LocalHazeState.current
 
     Scaffold(
         // TODO @WindowInsets remove this when we have converted everything to compose
@@ -48,7 +48,9 @@ fun PreferenceScaffold(
                     .focusRequester(bottom).focusProperties {
                         up = top
                     }
-                    .hazeSource(hazeState),
+                    .then(
+                        if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier
+                    ),
                 items = itemsProvider(),
                 contentPadding = contentPadding,
             )

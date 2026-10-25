@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.lagradost.cloudstream4.compose.WhiteIconButton
 import com.lagradost.cloudstream4.compose.glass.LocalGlassStyle
+import com.lagradost.cloudstream4.compose.glass.LocalHazeState
 import com.lagradost.cloudstream4.generated.resources.Res
 import com.lagradost.cloudstream4.generated.resources.action_bar_up_description
 import com.lagradost.cloudstream4.generated.resources.arrow_back
@@ -118,6 +119,18 @@ fun AppBar(
     hazeState: HazeState? = null,
 ) {
     val glass = LocalGlassStyle.current
+    // When a caller does not wire up its own state, fall back to the app wide one,
+    // otherwise the glass silently renders as a plain surface everywhere
+    val resolvedHazeState = hazeState ?: LocalHazeState.current
+    // Haze compares styles by identity, so hoist it instead of building it inline
+    val blurStyle = remember {
+        GlassStyle.regular.then {
+            tint(Color.White.copy(alpha = 0.12f))
+            shape(RoundedCornerShape(0.dp))
+            specularIntensity(0.35f)
+            ambientResponse(0.1f)
+        }
+    }
     Column(
         modifier = modifier,
     ) {
@@ -125,15 +138,10 @@ fun AppBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .then(
-                    if (glass.enabled && hazeState != null) {
+                    if (glass.enabled && resolvedHazeState != null) {
                         Modifier.hazeGlass(
-                            input = HazeInput.Sources(hazeState),
-                            style = GlassStyle {
-                                tint(Color.White.copy(alpha = 0.12f))
-                                shape(RoundedCornerShape(0.dp))
-                                specularIntensity(0.35f)
-                                ambientResponse(0.1f)
-                            },
+                            input = HazeInput.Sources(resolvedHazeState),
+                            style = blurStyle,
                         )
                     } else {
                         Modifier
@@ -166,7 +174,7 @@ fun AppBar(
                         backgroundColor != null -> backgroundColor
                         // The glass is drawn behind the app bar, the bar itself
                         // has to be transparent
-                        glass.enabled && hazeState != null -> Color.Transparent
+                        glass.enabled && resolvedHazeState != null -> Color.Transparent
                         glass.enabled -> glass.tint
                         else -> MaterialTheme.colorScheme.surfaceColorAtElevation(
                             elevation = if (isActionMode) 3.dp else 0.dp,

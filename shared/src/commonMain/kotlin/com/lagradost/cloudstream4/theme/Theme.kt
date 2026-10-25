@@ -14,6 +14,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import com.lagradost.cloudstream4.compose.glass.GlassStyle
 import com.lagradost.cloudstream4.compose.glass.LocalGlassStyle
+import com.lagradost.cloudstream4.compose.glass.LocalHazeState
+import dev.chrisbanes.haze.rememberHazeState
 
 enum class CloudStreamThemeMode {
     /** "Black" standard dark, #111111 backgrounds */
@@ -128,6 +130,8 @@ fun CloudStreamTheme(
 ) {
     val csColors = modeToTheme(mode, primaryColor)
     val globalTransition = rememberInfiniteTransition(label = "GlobalSharedTransition")
+    // One state for the whole app, so any app bar can blur the content below it
+    val hazeState = rememberHazeState()
     val glassStyle = if (mode == CloudStreamThemeMode.LiquidGlass) {
         GlassStyle.LiquidGlass
     } else {
@@ -137,6 +141,7 @@ fun CloudStreamTheme(
     CompositionLocalProvider(
         LocalSharedInfiniteTransition provides globalTransition,
         LocalGlassStyle provides glassStyle,
+        LocalHazeState provides hazeState,
     ) {
         MaterialTheme(
             colorScheme = csColors.toMaterial3ColorScheme(),
