@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -30,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.lagradost.cloudstream4.compose.WhiteIconButton
 import com.lagradost.cloudstream4.compose.glass.LocalGlassStyle
 import com.lagradost.cloudstream4.generated.resources.Res
 import com.lagradost.cloudstream4.generated.resources.action_bar_up_description
@@ -145,7 +145,7 @@ fun AppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 navigationIcon = {
                     if (isActionMode) {
-                        IconButton(onClick = onCancelActionMode) {
+                        WhiteIconButton(onClick = onCancelActionMode) {
                             Icon(
                                 painter = painterResource(Res.drawable.close),
                                 contentDescription = stringResource(Res.string.cancel),
@@ -153,7 +153,7 @@ fun AppBar(
                         }
                     } else {
                         navigateUp?.let {
-                            IconButton(onClick = it) {
+                            WhiteIconButton(onClick = it) {
                                 UpIcon(navigationIcon = navigationIcon)
                             }
                         }
