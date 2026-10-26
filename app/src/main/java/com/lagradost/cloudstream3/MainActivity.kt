@@ -157,7 +157,6 @@ import com.lagradost.cloudstream3.utils.DataStoreHelper.accounts
 import com.lagradost.cloudstream3.utils.DataStoreHelper.migrateResumeWatching
 import com.lagradost.cloudstream3.utils.Event
 import com.lagradost.cloudstream3.utils.ImageLoader.loadImage
-import com.lagradost.cloudstream3.utils.InAppUpdater.runAutoUpdate
 import com.lagradost.cloudstream3.utils.SingleSelectionHelper.showBottomDialog
 import com.lagradost.cloudstream3.utils.SnackbarHelper.showSnackbar
 import com.lagradost.cloudstream3.utils.TvChannelUtils
@@ -1989,12 +1988,10 @@ class MainActivity : AppCompatActivity(), ColorPickerDialogListener, BiometricCa
 
         handleAppIntent(intent)
 
-        // Check for a new version on startup. runAutoUpdate() already honours the
-        // auto_update setting and the "skip this update" choice, and returns false early
-        // when there is nothing to offer, so this does not nag the user.
-        ioSafe {
-            runAutoUpdate()
-        }
+        // The update check is handled by GithubViewModel through MainActivityScreen,
+        // which is mounted in the root compose view and checks once per session.
+        // Calling InAppUpdater.runAutoUpdate() here as well showed a second dialog for the
+        // same release: two independent update paths racing on startup.
 
         FcastManager.init(this, false)
 
