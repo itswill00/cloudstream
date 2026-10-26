@@ -557,22 +557,32 @@ object DataStoreHelper {
     }
 
     fun migrateResumeWatching() {
-        // if (getKey<Boolean>(RESULT_RESUME_WATCHING_HAS_MIGRATED, false) != true) {
-        setKey(RESULT_RESUME_WATCHING_HAS_MIGRATED, true)
+        // The migration flag is per account, because the old resume state lives under
+        // "$currentAccount/...". A global flag would either run the migration on every
+        // start (which used to null out the episode id and lose the saved position) or
+        // skip the accounts that had not been migrated yet.
+        val migratedKey = "$currentAccount/$RESULT_RESUME_WATCHING_HAS_MIGRATED"
+        if (getKey<Boolean>(migratedKey, false) == true) return
+
         getAllResumeStateIdsOld()?.forEach { id ->
-            getLastWatchedOld(id)?.let {
-                setLastWatched(
-                    it.parentId,
-                    null,
-                    it.episode,
-                    it.season,
-                    it.isFromDownload,
-                    it.updateTime,
-                )
-                removeLastWatchedOld(it.parentId)
+            getLastWatchedOld(id)?.let { old ->
+                // Never clobber data that is already in the new layout: the entry there
+                // may hold a real episode id, while the old one never did.
+                when (val action = resumeMigrationAction(old, getLastWatched(old.parentId))) {
+                    is ResumeMigrationAction.Copy -> setLastWatched(
+                        old.parentId,
+                        action.episodeId,
+                        action.episode,
+                        action.season,
+                        action.isFromDownload,
+                        action.updateTime,
+                    )
+                    ResumeMigrationAction.KeepExisting -> Unit
+                }
+                removeLastWatchedOld(old.parentId)
             }
         }
-        // }
+        setKey(migratedKey, true)
     }
 
     fun setLastWatched(
