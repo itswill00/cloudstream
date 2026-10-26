@@ -2,7 +2,7 @@ package com.lagradost.cloudstream3.network
 
 import androidx.annotation.AnyThread
 import com.lagradost.cloudstream3.app
-import com.lagradost.nicehttp.Requests
+import com.lagradost.nicehttp.Requests.Companion.await
 import com.lagradost.nicehttp.cookies
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
@@ -16,8 +16,10 @@ import okhttp3.Response
 // As seen in https://github.com/anime-dl/anime-downloader/blob/master/anime_downloader/sites/erairaws.py
 @AnyThread
 class DdosGuardKiller(private val alwaysBypass: Boolean) : Interceptor {
-    val savedCookiesMap = mutableMapOf<String, Map<String, String>>()
+    // Read and written from several OkHttp dispatcher threads, so it has to be concurrent.
+    val savedCookiesMap: MutableMap<String, Map<String, String>> = java.util.concurrent.ConcurrentHashMap()
 
+    @Volatile
     private var ddosBypassPath: String? = null
 
     override fun intercept(chain: Interceptor.Chain): Response = runBlocking {
@@ -25,9 +27,12 @@ class DdosGuardKiller(private val alwaysBypass: Boolean) : Interceptor {
         if (alwaysBypass) return@runBlocking bypassDdosGuard(request)
 
         val response = chain.proceed(request)
-        return@runBlocking if (response.code == 403) {
-            bypassDdosGuard(request)
-        } else response
+        if (response.code != 403) return@runBlocking response
+
+        // The 403 response has to be closed before a second request is issued on the same
+        // chain, otherwise the connection is never returned to the pool and leaks.
+        response.close()
+        bypassDdosGuard(request)
     }
 
     private suspend fun bypassDdosGuard(request: Request): Response {
@@ -42,7 +47,7 @@ class DdosGuardKiller(private val alwaysBypass: Boolean) : Interceptor {
             // If no cookies are found fetch and save em.
                 ?: (request.url.scheme + "://" + request.url.host + (ddosBypassPath ?: "")).let {
                     // Somehow app.get fails
-                    Requests().get(it).cookies.also { cookies ->
+                    app.get(it).cookies.also { cookies ->
                         savedCookiesMap[request.url.host] = cookies
                     }
                 }
@@ -52,6 +57,6 @@ class DdosGuardKiller(private val alwaysBypass: Boolean) : Interceptor {
             request.newBuilder()
                 .headers(headers)
                 .build()
-        ).execute()
+        ).await()
     }
 }
