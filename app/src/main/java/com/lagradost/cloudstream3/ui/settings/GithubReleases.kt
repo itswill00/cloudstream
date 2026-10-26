@@ -62,36 +62,49 @@ object GithubReleases : GithubRepository {
     ): String {
         // A missing tag returns {"message": "Not Found"}, which does not deserialize as a
         // GithubTag and threw a MissingFieldException on every startup update check.
-        val tagExists = try {
+        val byTag = parseOrNull {
             app.get(
                 url = "https://api.github.com/repos/$userName/$repository/git/ref/tags/$tag",
                 headers = defaultHeaders
-            ).okhttpResponse.isSuccessful
-        } catch (t: Throwable) {
-            false
+            ).parsed<GithubTag>().githubObject.sha
         }
+        if (byTag != null) return byTag
 
-        val resolvedTag = if (tagExists) {
-            tag
-        } else {
-            // Fall back to the newest published release
-            newestTag(userName, repository) ?: throw FileNotFoundException()
-        }
-
-        return app.get(
-            url = "https://api.github.com/repos/$userName/$repository/git/ref/tags/$resolvedTag",
-            headers = defaultHeaders
-        ).parsed<GithubTag>().githubObject.sha
+        // Fall back to the newest published release
+        val fallbackTag = newestTag(userName, repository) ?: throw FileNotFoundException()
+        return parseOrNull {
+            app.get(
+                url = "https://api.github.com/repos/$userName/$repository/git/ref/tags/$fallbackTag",
+                headers = defaultHeaders
+            ).parsed<GithubTag>().githubObject.sha
+        } ?: throw FileNotFoundException()
     }
 
     /** The releases of the repository, a draft has no published asset and is not returned. */
+    /**
+     * Parses a GitHub response body, returning null instead of throwing on an error body.
+     *
+     * GitHub answers a missing resource with `{"message": "Not Found"}`. Feeding that to a
+     * serializer produced `MissingFieldException: Fields [...] are required ...` on every
+     * update check, which is what the log showed. Every call site goes through here so an
+     * error body can never be mistaken for a release or a tag again.
+     */
+    private suspend inline fun <reified T> parseOrNull(block: () -> T): T? =
+        try {
+            block()
+        } catch (t: Throwable) {
+            null
+        }
+
     private suspend fun getReleasesRaw(
         userName: String,
         repository: String,
-    ): List<GithubRelease> = app.get(
-        url = "https://api.github.com/repos/$userName/$repository/releases",
-        headers = defaultHeaders
-    ).parsed<Array<GithubRelease>>().filter { !it.draft }
+    ): List<GithubRelease> = parseOrNull {
+        app.get(
+            url = "https://api.github.com/repos/$userName/$repository/releases",
+            headers = defaultHeaders
+        ).parsed<Array<GithubRelease>>()
+    }?.filter { !it.draft }.orEmpty()
 
     /**
      * The tag of the newest release, used when the requested prerelease tag does not exist.
@@ -115,25 +128,23 @@ object GithubReleases : GithubRepository {
         val latestRelease = if (prerelease) {
             // Prefer the requested prerelease tag, but fall back to the newest published
             // release so a missing tag does not break the whole update check.
-            val byTag = try {
+            parseOrNull {
                 app.get(
                     url = "https://api.github.com/repos/$userName/$repository/releases/tags/$prereleaseTag",
                     headers = defaultHeaders
                 ).parsed<GithubRelease>()
-            } catch (t: Throwable) {
-                null
-            }
-            val resolved = byTag ?: getReleasesRaw(userName, repository)
-                .maxByOrNull { it.createdAt }
-                ?: throw FileNotFoundException()
-
-            resolved
+            } ?: getReleasesRaw(userName, repository).maxByOrNull { it.createdAt }
+            ?: throw FileNotFoundException()
         } else {
-            // The latest release is the most recent non-prerelease, non-draft release
-            app.get(
-                url = "https://api.github.com/repos/$userName/$repository/releases/latest",
-                headers = defaultHeaders
-            ).parsed<GithubRelease>()
+            // The latest release is the most recent non-prerelease, non-draft release.
+            // GitHub answers 404 when the repository has none.
+            parseOrNull {
+                app.get(
+                    url = "https://api.github.com/repos/$userName/$repository/releases/latest",
+                    headers = defaultHeaders
+                ).parsed<GithubRelease>()
+            } ?: getReleasesRaw(userName, repository).maxByOrNull { it.createdAt }
+            ?: throw FileNotFoundException()
         }
 
         // Find the first correct asset, given that we might have other binaries we release in the same version
