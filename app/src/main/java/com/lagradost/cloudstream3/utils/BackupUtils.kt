@@ -42,7 +42,7 @@ import kotlinx.serialization.Serializable
 import okhttp3.internal.closeQuietly
 import java.io.IOException
 import java.io.OutputStream
-import java.io.PrintWriter
+import java.io.OutputStreamWriter
 import java.lang.System.currentTimeMillis
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -73,7 +73,7 @@ object BackupUtils {
         "download_path_key",
         "download_path_key_visual",
         "backup_path_key",
-        "backup_dir_path_key",
+        "backup_dir_key",
 
         // When sharing backup we do not want to transfer what is essentially the password
         // Note that this is deprecated, and can be removed after all tokens have expired
@@ -114,8 +114,10 @@ object BackupUtils {
     )
 
     /** false if key should not be contained in backup */
-    private fun String.isTransferable(): Boolean {
-        return !nonTransferableKeys.any { this.contains(it) }
+    internal fun String.isTransferable(): Boolean {
+        // Exact match only: a substring test dropped unrelated keys whose name merely
+        // contained one of these (and made names like "x_backup_dir_key_y" leak or vanish).
+        return this !in nonTransferableKeys
     }
 
     private var restoreFileSelector: ActivityResultLauncher<Array<String>>? = null
@@ -201,7 +203,6 @@ object BackupUtils {
     fun backup(context: Context?) = ioSafe {
         if (context == null) return@ioSafe
         var fileStream: OutputStream? = null
-        var printStream: PrintWriter? = null
 
         try {
             if (!context.checkWrite()) {
@@ -214,10 +215,20 @@ object BackupUtils {
             val displayName = "CS3_Backup_${date}"
             val backupFile = getBackup(context)
             val stream = setupBackupStream(context, displayName)
+            val json = backupFile.toJson()
 
             fileStream = stream.openNew()
-            printStream = PrintWriter(fileStream)
-            printStream.print(backupFile.toJson())
+            // PrintWriter swallows IOException into an internal error flag, so a full disk
+            // or a failing SAF provider produced a truncated backup while the user was
+            // told "backup success". Write explicitly and verify the result instead.
+            val writer = OutputStreamWriter(fileStream, Charsets.UTF_8)
+            writer.write(json)
+            writer.flush()
+            fileStream.flush()
+            fileStream.close()
+            fileStream = null
+
+            // Only report success once every byte has been handed to the destination.
             showToast(R.string.backup_success, Toast.LENGTH_LONG)
         } catch (e: Exception) {
             logError(e)
@@ -230,7 +241,6 @@ object BackupUtils {
                 logError(e)
             }
         } finally {
-            printStream?.closeQuietly()
             fileStream?.closeQuietly()
         }
     }
