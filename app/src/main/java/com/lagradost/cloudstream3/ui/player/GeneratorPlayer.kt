@@ -441,6 +441,9 @@ class GeneratorPlayer : FullScreenPlayer() {
 
         // Cancel the notification when released
         if (player == null) {
+            // setPlayer(null) already removes the player listener, cancels the notification
+            // and unregisters the broadcast receiver internally (stopNotification()), so
+            // nothing else has to be released here.
             cachedPlayerNotificationManager?.setPlayer(null)
             cachedPlayerNotificationManager = null
             return

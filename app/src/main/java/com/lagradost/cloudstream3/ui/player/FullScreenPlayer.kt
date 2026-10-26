@@ -232,6 +232,10 @@ open class FullScreenPlayer : AbstractPlayerFragment<FragmentPlayerBinding>(
     }
 
     override fun onDestroyView() {
+        // release() unsubscribes from SubtitlesFragment.applyStyleEvent (a singleton) and
+        // tears the view tree down. Leaving it out kept the fragment's Activity reachable
+        // through the static event listener after the view was gone.
+        playerHostView?.release()
         playerHostView?.releaseOverlayLayoutListener()
         playerBinding = null
         super.onDestroyView()
