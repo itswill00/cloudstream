@@ -1989,9 +1989,12 @@ class MainActivity : AppCompatActivity(), ColorPickerDialogListener, BiometricCa
 
         handleAppIntent(intent)
 
-        //ioSafe {
-        //    runAutoUpdate()
-        //}
+        // Check for a new version on startup. runAutoUpdate() already honours the
+        // auto_update setting and the "skip this update" choice, and returns false early
+        // when there is nothing to offer, so this does not nag the user.
+        ioSafe {
+            runAutoUpdate()
+        }
 
         FcastManager.init(this, false)
 
