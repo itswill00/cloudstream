@@ -34,6 +34,11 @@
 #    REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR,
 #    KEYS_ENV_FILE (file with SIGNING_KEY_ALIAS and the passwords),
 #    TELEGRAM_CONFIG (file with the bot token and the chat id)
+#    TG_API_CONFIG (file with TELEGRAM_API_ID and TELEGRAM_API_HASH)
+#    TELEGRAM_API_BASE (url of the Bot API, default: http://127.0.0.1:8081)
+#
+#  The upload goes through a self-hosted telegram-bot-api server in --local
+#  mode, so the APK is sent as one single document, never split into parts.
 # =============================================================================
 set -uo pipefail
 
@@ -90,6 +95,11 @@ cat <<'USAGE'
    REPO_DIR, ANDROID_HOME/ANDROID_SDK_ROOT, JAVA_HOME, BUILD_LOG_DIR,
    KEYS_ENV_FILE (file with SIGNING_KEY_ALIAS and the passwords),
    TELEGRAM_CONFIG (file with the bot token and the chat id)
+   TG_API_CONFIG (file with TELEGRAM_API_ID and TELEGRAM_API_HASH)
+   TELEGRAM_API_BASE (url of the Bot API, default: http://127.0.0.1:8081)
+
+ The APK is uploaded through a self-hosted telegram-bot-api server in --local
+ mode, so it is sent as one single document and never split into parts.
 =============================================================================
 USAGE
 }
@@ -310,7 +320,15 @@ on_error() {
 # ------------------------------ telegram -------------------------------------
 # The APK is sent to the test group, so that a fix can be tested on a device
 # before a release is tagged.
-SPLIT_SIZE=$((48 * 1024 * 1024)) # Telegram allows 50 MB, keep some room
+#
+# The upload goes through a self-hosted telegram-bot-api server running in
+# --local mode, so the 50 MB limit of the public Bot API does not apply and the
+# APK is always sent as one single document (no split parts).
+
+# Base URL of the Bot API. Points at the local server started by tg_start.
+TELEGRAM_API_BASE="${TELEGRAM_API_BASE:-http://127.0.0.1:8081}"
+TG_CONTAINER="${TG_CONTAINER:-telegram-bot-api}"
+TG_API_CONFIG="${TG_API_CONFIG:-/root/keys/telegram-api.env}"
 
 newest_apk() {
   local dir="$REPO_DIR/app/build/outputs/apk/$FLAVOR"
@@ -345,21 +363,68 @@ $EXTRA_MESSAGE"
 
 telegram_upload() {
   local file="$1" caption="$2"
+  local name; name=$(basename "$file")
   local response
-  response=$(curl -s --max-time 900 \
+  response=$(curl -s --max-time 1800 \
     -F "chat_id=$TELEGRAM_CHAT_ID" \
     -F "caption=$caption" \
-    -F "document=@$file" \
-    "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendDocument")
+    -F "document=@$file;filename=$name" \
+    "$TELEGRAM_API_BASE/bot$TELEGRAM_BOT_TOKEN/sendDocument")
   if echo "$response" | grep -q '"ok":true'; then
     local msg_id
     msg_id=$(echo "$response" | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['message_id'])" 2>/dev/null)
-    ok "sent $file (message id $msg_id)"
+    ok "sent $name ($(awk -v s="$(stat -c%s "$file")" 'BEGIN{printf "%.1f MB", s/1048576}'), message id $msg_id)"
   else
     local desc
-    desc=$(echo "$response" | python3 -c "import json,sys; print(json.load(sys.stdin).get('description', response))" 2>/dev/null)
+    desc=$(echo "$response" | python3 -c "import json,sys; print(json.load(sys.stdin).get('description', sys.stdin.read()))" 2>/dev/null)
     die "upload failed: $desc"
   fi
+}
+
+# Make sure the local Bot API server is up. It runs in --local mode, which is
+# what lifts the 50 MB upload limit, so the APK can be sent as a single file.
+tg_start() {
+  [ -f "$TG_API_CONFIG" ] || die "config not found: $TG_API_CONFIG (needs TELEGRAM_API_ID and TELEGRAM_API_HASH)"
+  # shellcheck disable=SC1090
+  source "$TG_API_CONFIG"
+  [ -n "${TELEGRAM_API_ID:-}" ] || die "TELEGRAM_API_ID is not set in $TG_API_CONFIG"
+  [ -n "${TELEGRAM_API_HASH:-}" ] || die "TELEGRAM_API_HASH is not set in $TG_API_CONFIG"
+
+  # already answering? nothing to do
+  if curl -s --max-time 5 "$TELEGRAM_API_BASE/bot$TELEGRAM_BOT_TOKEN/getMe" | grep -q '"ok":true'; then
+    ok "bot api : local server already running at $TELEGRAM_API_BASE"
+    return 0
+  fi
+
+  command -v docker >/dev/null 2>&1 || die "docker not found, it is needed for the local Bot API server"
+  local img="aiogram/telegram-bot-api:latest"
+  docker image inspect "$img" >/dev/null 2>&1 || {
+    say "pulling $img ..."
+    docker pull "$img" >/dev/null 2>&1 || die "docker pull $img failed"
+  }
+
+  # recreate cleanly if a stopped container with the same name is around
+  docker rm -f "$TG_CONTAINER" >/dev/null 2>&1
+
+  say "starting the local Bot API server ($TG_CONTAINER) ..."
+  mkdir -p /root/telegram-bot-api
+  docker run -d --name "$TG_CONTAINER" --restart unless-stopped \
+    --env-file "$TG_API_CONFIG" \
+    -p 127.0.0.1:8081:8081 \
+    -v /root/telegram-bot-api:/var/lib/telegram-bot-api \
+    "$img" --local --http-port=8081 >/dev/null \
+    || die "failed to start the Bot API container"
+
+  local i
+  for i in $(seq 1 30); do
+    if curl -s --max-time 3 "$TELEGRAM_API_BASE/bot$TELEGRAM_BOT_TOKEN/getMe" | grep -q '"ok":true'; then
+      ok "bot api : local server up at $TELEGRAM_API_BASE"
+      return 0
+    fi
+    sleep 1
+  done
+  docker logs "$TG_CONTAINER" 2>&1 | tail -10 | sed 's/^/    /'
+  die "the local Bot API server did not come up"
 }
 
 send_to_telegram() {
@@ -373,27 +438,13 @@ send_to_telegram() {
   [ -n "${TELEGRAM_BOT_TOKEN:-}" ] || die "TELEGRAM_BOT_TOKEN is not set in $TELEGRAM_CONFIG"
   [ -n "${TELEGRAM_CHAT_ID:-}" ] || die "TELEGRAM_CHAT_ID is not set in $TELEGRAM_CONFIG"
 
+  tg_start
+
   local size; size=$(stat -c%s "$apk")
-  local name; name=$(basename "$apk")
   local caption; caption=$(telegram_caption "$size")
 
-  if [ "$size" -gt "$SPLIT_SIZE" ]; then
-    warn "the APK is $(awk -v s="$size" 'BEGIN{printf "%.1f MB", s/1048576}'), it is split into parts"
-    local tmp; tmp=$(mktemp -d)
-    split -b "$SPLIT_SIZE" -d "$apk" "$tmp/$name.part"
-    local parts=("$tmp"/"$name".part*)
-    caption="$caption
-
-The APK is too big for Telegram, it is split into ${#parts[@]} parts.
-Join them on the device with a terminal:
-  cat ${name}.part* > $name"
-    for part in "${parts[@]}"; do
-      telegram_upload "$part" "$caption"
-    done
-    rm -rf "$tmp"
-  else
-    telegram_upload "$apk" "$caption"
-  fi
+  # one single document, no split
+  telegram_upload "$apk" "$caption"
 }
 
 # --------------------------- release notes -----------------------------------
