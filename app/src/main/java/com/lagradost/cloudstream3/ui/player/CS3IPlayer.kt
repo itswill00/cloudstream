@@ -176,6 +176,16 @@ class CS3IPlayer : IPlayer {
 
     private var currentLink: ExtractorLink? = null
     private var currentDownloadedFile: ExtractorUri? = null
+
+    /**
+     * Set when the last attempt to load [currentLink] / [currentDownloadedFile] failed.
+     *
+     * onResume used to call reloadPlayer() whenever exoPlayer was null, and the link fields
+     * were never cleared on failure, so a broken link was retried on every resume: a new
+     * ExoPlayer, MediaSession and data source were created each time and the load failed
+     * again, which re-emitted the error and could pop the player page in a loop.
+     */
+    private var lastSourceFailed = false
     private var hasUsedFirstRender = false
 
     private var currentWindow: Int = 0
@@ -308,10 +318,17 @@ class CS3IPlayer : IPlayer {
         // we want autoplay because of TV and UX
         isPlaying = autoPlay ?: isPlaying
 
+        // A new source resets the failure state, so onResume is allowed to rebuild again.
+        lastSourceFailed = false
+
         // release the current exoplayer and cache
         releasePlayer()
 
         if (link != null) {
+            // A new online link must not leave a previously played offline file behind,
+            // otherwise it would win the reloadPlayer() check later.
+            currentDownloadedFile = null
+
             // only video support atm
             (imageGenerator as? PreviewGenerator)?.let { gen ->
                 if (preview) {
@@ -323,6 +340,8 @@ class CS3IPlayer : IPlayer {
 
             loadOnlinePlayer(context, link)
         } else if (data != null) {
+            currentLink = null
+
             (imageGenerator as? PreviewGenerator)?.let { gen ->
                 if (preview) {
                     gen.load(context, data, sameEpisode)
@@ -661,7 +680,10 @@ class CS3IPlayer : IPlayer {
 
     override fun onResume(context: Context) {
         isAudioOnlyBackground = false
-        if (exoPlayer == null)
+        // Only rebuild a player that failed because it was released (e.g. the app went to
+        // the background). A source that failed to load is not retried here: that path
+        // used to spin up a new player on every resume and fail again forever.
+        if (exoPlayer == null && !lastSourceFailed)
             reloadPlayer(context)
     }
 
@@ -1688,6 +1710,7 @@ class CS3IPlayer : IPlayer {
             }.also { playerListener = it })
         } catch (t: Throwable) {
             Log.e(TAG, "loadExo error", t)
+            lastSourceFailed = true
             event(ErrorEvent(t))
         }
     }
@@ -1758,6 +1781,7 @@ class CS3IPlayer : IPlayer {
             loadExo(context, listOf(MediaItemSlice(mediaItem, Long.MIN_VALUE)), subSources)
         } catch (t: Throwable) {
             Log.e(TAG, "loadOfflinePlayer error", t)
+            lastSourceFailed = true
             event(ErrorEvent(t))
         }
     }
@@ -2032,6 +2056,7 @@ class CS3IPlayer : IPlayer {
             )
         } catch (t: Throwable) {
             Log.e(TAG, "loadOnlinePlayer error", t)
+            lastSourceFailed = true
             event(ErrorEvent(t))
         }
     }
@@ -2040,10 +2065,14 @@ class CS3IPlayer : IPlayer {
         Log.i(TAG, "reloadPlayer")
 
         releasePlayer(false)
-        currentLink?.let {
-            loadOnlinePlayer(context, it)
-        } ?: currentDownloadedFile?.let {
-            loadOfflinePlayer(context, it)
+        // The two fields are mutually exclusive; keep them that way so a stale entry from
+        // a previous video can never be picked up here.
+        currentLink?.let { link ->
+            currentDownloadedFile = null
+            loadOnlinePlayer(context, link)
+        } ?: currentDownloadedFile?.let { data ->
+            currentLink = null
+            loadOfflinePlayer(context, data)
         }
     }
 
