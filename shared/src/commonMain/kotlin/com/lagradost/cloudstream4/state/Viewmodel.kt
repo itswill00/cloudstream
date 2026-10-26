@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -125,8 +126,12 @@ data class SingleActiveQuery(
                 withContext(dispatcher) {
                     block()
                 }
-            } catch (_: Throwable) {
-                //logError(t)
+            } catch (t: Throwable) {
+                // Never swallow a failure: the previous silent catch made a broken update
+                // check look like it was still loading, with nothing in the log.
+                if (t is CancellationException) throw t
+                println("SingleActiveQuery failed: ${t.message}")
+                t.printStackTrace()
             }
         }
         mutex.withLock {

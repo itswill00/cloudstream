@@ -10,7 +10,9 @@ import com.lagradost.cloudstream4.state.ActionHandler
 import com.lagradost.cloudstream4.state.DefaultStateContainer
 import com.lagradost.cloudstream4.state.SingleActiveQuery
 import com.lagradost.cloudstream4.state.StateContainer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -213,11 +215,13 @@ class GithubViewModel(
             try {
                 block()
             } catch (t: Throwable) {
-                // If it was canceled ignore it as we probably launched another update check
-                if (!isActive) {
+                // A cancelled check is not an error: another one replaced it.
+                if (t is CancellationException || !currentCoroutineContext().isActive) {
                     return@launch
                 }
-                // Otherwise we display the error
+                // Always leave the dialog in a terminal state. Before this, a failure that
+                // was not caught inside block() left the dialog stuck on Loading with no
+                // way out, which looked like a button that does nothing.
                 updateState {
                     copy(dialog = dialog?.copy(state = GithubUpdateDialogState.Error(t)))
                 }
