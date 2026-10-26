@@ -27,14 +27,42 @@ const val PREFERENCES_NAME = "rebuild_preference"
 
 // TODO degelgate by value for get & set
 
+object PreferenceCache {
+    // Every live delegate registers here, so a write that bypasses the delegate itself
+    // (restore, removeKey, Editor.apply) can drop the stale cached values. Without this
+    // a restored backup looked like it had no effect until the process was restarted.
+    private val delegates = java.util.Collections.newSetFromMap(
+        java.util.WeakHashMap<PreferenceDelegate<*>, Boolean>()
+    )
+
+    fun register(delegate: PreferenceDelegate<*>) {
+        delegates.add(delegate)
+    }
+
+    /** Drop every cached value, the next read goes to SharedPreferences again. */
+    fun invalidateAll() {
+        for (delegate in delegates.toList()) {
+            delegate.invalidate()
+        }
+    }
+}
+
 class PreferenceDelegate<T : Any>(
     val key: String, val default: T //, private val klass: KClass<T>
 ) {
     private val klass: KClass<out T> = default::class
 
     // simple cache to make it not get the key every time it is accessed, however this requires
-    // that ONLY this changes the key
+    // that ONLY this changes the key — anything else has to call PreferenceCache.invalidateAll()
     private var cache: T? = null
+
+    init {
+        PreferenceCache.register(this)
+    }
+
+    fun invalidate() {
+        cache = null
+    }
 
     operator fun getValue(self: Any?, property: KProperty<*>) =
         cache ?: getKeyClass(key, klass.java).also { newCache -> cache = newCache } ?: default
@@ -81,8 +109,14 @@ data class Editor(
     }
 
     fun apply() {
+        // apply() is already asynchronous; the System.gc() that used to be here forced a
+        // full stop-the-world collection on the calling thread (often the main thread)
+        // after every bulk write and did nothing to make the write durable.
         editor.apply()
-        System.gc()
+        // Bulk writes go straight to SharedPreferences and bypass the delegates, so any
+        // cached value would keep serving the old data (this is what made "restore" look
+        // like a no-op until the app was restarted).
+        PreferenceCache.invalidateAll()
     }
 }
 
@@ -149,6 +183,7 @@ object DataStore {
                 prefs.edit {
                     remove(path)
                 }
+                PreferenceCache.invalidateAll()
             }
         } catch (e: Exception) {
             logError(e)
@@ -163,6 +198,7 @@ object DataStore {
                     remove(value)
                 }
             }
+            PreferenceCache.invalidateAll()
             return keys.size
         } catch (e: Exception) {
             logError(e)
@@ -217,13 +253,17 @@ object DataStore {
         return parseJson(this, valueType.kotlin)
     }
 
-    // GET KEY GIVEN PATH AND DEFAULT VALUE, NULL IF ERROR
+    // GET KEY GIVEN PATH AND DEFAULT VALUE, DEFVAL IF ERROR
     inline fun <reified T : Any> Context.getKey(path: String, defVal: T?): T? {
         return try {
             val json: String = getSharedPrefs().getString(path, null) ?: return defVal
             parseJson<T>(json)
         } catch (_: Exception) {
-            null
+            // Returning null here used to break every caller that relies on the
+            // fallback: a single corrupt entry made whole registries (plugins,
+            // accounts, repositories) look empty and get overwritten on the next
+            // write, losing all of it permanently.
+            defVal
         }
     }
 
