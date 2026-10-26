@@ -60,19 +60,16 @@ object GithubReleases : GithubRepository {
         repository: String,
         tag: String,
     ): String {
-        // parsedSafe returns null on a body that does not fit the type, instead of throwing
-        // a MissingFieldException. GitHub answers a missing tag with
-        // {"message": "Not Found"}, which is what used to crash the whole update check.
-        val byTag = app.get(
-            url = "https://api.github.com/repos/$userName/$repository/git/ref/tags/$tag",
-            headers = defaultHeaders
-        ).parsedSafe<GithubTag>()?.githubObject?.sha
-        if (byTag != null) return byTag
+        // Ask for the tag that is actually published instead of probing the requested one.
+        // The requested tag ("pre-release") does not exist in this fork, and the 404 it
+        // produced was logged as an error by the http layer on every start.
+        val releases = getReleasesRaw(userName, repository)
+        val release = releases.firstOrNull { it.tagName == tag }
+            ?: releases.maxByOrNull { it.createdAt }
+            ?: throw FileNotFoundException()
 
-        // Fall back to the newest published release
-        val fallbackTag = newestTag(userName, repository) ?: throw FileNotFoundException()
         return app.get(
-            url = "https://api.github.com/repos/$userName/$repository/git/ref/tags/$fallbackTag",
+            url = "https://api.github.com/repos/$userName/$repository/git/ref/tags/${release.tagName}",
             headers = defaultHeaders
         ).parsedSafe<GithubTag>()?.githubObject?.sha ?: throw FileNotFoundException()
     }
@@ -90,17 +87,6 @@ object GithubReleases : GithubRepository {
         headers = defaultHeaders
     ).parsedSafe<Array<GithubRelease>>()?.filter { !it.draft }.orEmpty()
 
-    /**
-     * The tag of the newest release, used when the requested prerelease tag does not exist.
-     *
-     * The prerelease channel is a rolling git tag in upstream, but this fork publishes
-     * versioned releases instead. Asking for a tag that is not there returned
-     * `{"message": "Not Found"}`, which then failed to deserialize as GithubTag and
-     * surfaced as a MissingFieldException on every update check.
-     */
-    private suspend fun newestTag(userName: String, repository: String): String? =
-        getReleasesRaw(userName, repository).maxByOrNull { it.createdAt }?.tagName
-
     @Throws
     override suspend fun getRelease(
         userName: String,
@@ -109,23 +95,20 @@ object GithubReleases : GithubRepository {
         prereleaseTag: String,
         contentType: String,
     ): GithubFile {
+        // Resolve from the release list in one request instead of probing
+        // /releases/tags/<tag> and /releases/latest first. Those endpoints answer 404 when
+        // the tag does not exist or the repository has no non-prerelease release, and
+        // every 404 was logged as an error by the http layer even though it is expected.
+        val releases = getReleasesRaw(userName, repository)
+
         val latestRelease = if (prerelease) {
-            // Prefer the requested prerelease tag, but fall back to the newest published
-            // release so a missing tag does not break the whole update check.
-            app.get(
-                url = "https://api.github.com/repos/$userName/$repository/releases/tags/$prereleaseTag",
-                headers = defaultHeaders
-            ).parsedSafe<GithubRelease>()
-                ?: getReleasesRaw(userName, repository).maxByOrNull { it.createdAt }
+            releases.firstOrNull { it.tagName == prereleaseTag }
+                ?: releases.maxByOrNull { it.createdAt }
                 ?: throw FileNotFoundException()
         } else {
-            // The latest release is the most recent non-prerelease, non-draft release.
-            // GitHub answers 404 when the repository has none.
-            app.get(
-                url = "https://api.github.com/repos/$userName/$repository/releases/latest",
-                headers = defaultHeaders
-            ).parsedSafe<GithubRelease>()
-                ?: getReleasesRaw(userName, repository).maxByOrNull { it.createdAt }
+            // The newest published release that is not a prerelease
+            releases.filter { !it.prerelease }.maxByOrNull { it.createdAt }
+                ?: releases.maxByOrNull { it.createdAt }
                 ?: throw FileNotFoundException()
         }
 
