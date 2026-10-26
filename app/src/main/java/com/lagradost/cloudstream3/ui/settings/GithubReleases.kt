@@ -28,6 +28,8 @@ object GithubReleases : GithubRepository {
         @JsonProperty("prerelease") @SerialName("prerelease") val prerelease: Boolean,
         @JsonProperty("node_id") @SerialName("node_id") val nodeId: String,
         @JsonProperty("created_at") @SerialName("created_at") val createdAt: String, // YYYY-MM-DDTHH:MM:SSZ
+        // A draft release has no published asset, it must never be offered as an update.
+        @JsonProperty("draft") @SerialName("draft") val draft: Boolean = false,
     )
 
     @Serializable
@@ -57,11 +59,49 @@ object GithubReleases : GithubRepository {
         repository: String,
         tag: String,
     ): String {
+        // A missing tag returns {"message": "Not Found"}, which does not deserialize as a
+        // GithubTag and threw a MissingFieldException on every startup update check.
+        val tagExists = try {
+            app.get(
+                url = "https://api.github.com/repos/$userName/$repository/git/ref/tags/$tag",
+                headers = defaultHeaders
+            ).okhttpResponse.isSuccessful
+        } catch (t: Throwable) {
+            false
+        }
+
+        val resolvedTag = if (tagExists) {
+            tag
+        } else {
+            // Fall back to the newest published release
+            newestTag(userName, repository) ?: throw FileNotFoundException()
+        }
+
         return app.get(
-            url = "https://api.github.com/repos/$userName/$repository/git/ref/tags/$tag",
+            url = "https://api.github.com/repos/$userName/$repository/git/ref/tags/$resolvedTag",
             headers = defaultHeaders
         ).parsed<GithubTag>().githubObject.sha
     }
+
+    /** The releases of the repository, a draft has no published asset and is not returned. */
+    private suspend fun getReleasesRaw(
+        userName: String,
+        repository: String,
+    ): List<GithubRelease> = app.get(
+        url = "https://api.github.com/repos/$userName/$repository/releases",
+        headers = defaultHeaders
+    ).parsed<Array<GithubRelease>>().filter { !it.draft }
+
+    /**
+     * The tag of the newest release, used when the requested prerelease tag does not exist.
+     *
+     * The prerelease channel is a rolling git tag in upstream, but this fork publishes
+     * versioned releases instead. Asking for a tag that is not there returned
+     * `{"message": "Not Found"}`, which then failed to deserialize as GithubTag and
+     * surfaced as a MissingFieldException on every update check.
+     */
+    private suspend fun newestTag(userName: String, repository: String): String? =
+        getReleasesRaw(userName, repository).maxByOrNull { it.createdAt }?.tagName
 
     @Throws
     override suspend fun getRelease(
@@ -71,25 +111,35 @@ object GithubReleases : GithubRepository {
         prereleaseTag: String,
         contentType: String,
     ): GithubFile {
-        val latestReleaseUrl = if (prerelease) {
-            // Find the release object
-            // https://docs.github.com/en/rest/releases/releases?apiVersion=2026-03-10#get-a-release-by-tag-name
-            "https://api.github.com/repos/$userName/$repository/releases/tags/$prereleaseTag"
-        } else {
-            // Just get the latest release
-            // https://docs.github.com/en/rest/releases/releases?apiVersion=2026-03-10#get-the-latest-release
-            // The latest release is the most recent non-prerelease, non-draft release, sorted by the created_at attribute
-            "https://api.github.com/repos/$userName/$repository/releases/latest"
-        }
+        val latestRelease = if (prerelease) {
+            // Prefer the requested prerelease tag, but fall back to the newest published
+            // release so a missing tag does not break the whole update check.
+            val byTag = try {
+                app.get(
+                    url = "https://api.github.com/repos/$userName/$repository/releases/tags/$prereleaseTag",
+                    headers = defaultHeaders
+                ).parsed<GithubRelease>()
+            } catch (t: Throwable) {
+                null
+            }
+            val resolved = byTag ?: getReleasesRaw(userName, repository)
+                .maxByOrNull { it.createdAt }
+                ?: throw FileNotFoundException()
 
-        val latestRelease = app.get(
-            url = latestReleaseUrl,
-            headers = defaultHeaders
-        ).parsed<GithubRelease>()
+            resolved
+        } else {
+            // The latest release is the most recent non-prerelease, non-draft release
+            app.get(
+                url = "https://api.github.com/repos/$userName/$repository/releases/latest",
+                headers = defaultHeaders
+            ).parsed<GithubRelease>()
+        }
 
         // Find the first correct asset, given that we might have other binaries we release in the same version
         val foundAsset = latestRelease.assets.firstOrNull { asset ->
             asset.contentType == contentType
+        } ?: latestRelease.assets.firstOrNull { asset ->
+            asset.name.endsWith(".apk", ignoreCase = true)
         }
 
         if (foundAsset == null) {

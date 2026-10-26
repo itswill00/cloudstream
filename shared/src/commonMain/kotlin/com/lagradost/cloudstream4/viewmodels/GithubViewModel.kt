@@ -265,20 +265,28 @@ class GithubViewModel(
         var oldSha: String? = null
         var newSha: String? = null
         if (prerelease) {
-            val sha = repository.getSha(
-                tag = remotePrereleaseTag,
-                userName = remoteUserName,
-                repository = remoteRepository,
-            )
-            oldSha = buildSha.take(7)
-            newSha = sha.take(7)
+            // A missing prerelease tag must not abort the check: the release lookup below
+            // falls back to the newest published release.
+            val sha = try {
+                repository.getSha(
+                    tag = remotePrereleaseTag,
+                    userName = remoteUserName,
+                    repository = remoteRepository,
+                )
+            } catch (t: Throwable) {
+                null
+            }
+            if (sha != null) {
+                oldSha = buildSha.take(7)
+                newSha = sha.take(7)
 
-            // Only match the first 7 chars, as that is what is saved
-            if (oldSha == newSha) {
-                updateState {
-                    copy(dialog = baseDialog.copy(state = GithubUpdateDialogState.NoUpdateFound))
+                // Only match the first 7 chars, as that is what is saved
+                if (oldSha == newSha) {
+                    updateState {
+                        copy(dialog = baseDialog.copy(state = GithubUpdateDialogState.NoUpdateFound))
+                    }
+                    return@dispatchUpdate
                 }
-                return@dispatchUpdate
             }
         }
 
