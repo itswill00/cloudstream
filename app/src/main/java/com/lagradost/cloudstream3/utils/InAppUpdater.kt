@@ -61,6 +61,8 @@ object InAppUpdater {
         @JsonProperty("assets") @SerialName("assets") val assets: List<GithubAsset>,
         @JsonProperty("target_commitish") @SerialName("target_commitish") val targetCommitish: String, // Branch
         @JsonProperty("prerelease") @SerialName("prerelease") val prerelease: Boolean,
+        // A draft release has no published assets, it must never be offered as an update.
+        @JsonProperty("draft") @SerialName("draft") val draft: Boolean = false,
         @JsonProperty("node_id") @SerialName("node_id") val nodeId: String,
     )
 
@@ -99,6 +101,19 @@ object InAppUpdater {
         }
     }
 
+    // The version is taken either from the tag name or from the name of the apk asset, so
+    // a release does not break just because its asset is named differently. The old regex
+    // only accepted "*.apk" and silently skipped everything else, which made the updater
+    // report "no update" forever for any release with e.g. "-arm64-v8a" in the file name.
+    /** The version of a release, from the tag or else from the name of its apk. */
+    private fun GithubRelease.version(): String? =
+        UpdateVersion.nameOf(tagName) ?: UpdateVersion.nameOf(apkAsset()?.name)
+
+    /** The apk of a release, never some other asset that happens to be attached to it. */
+    private fun GithubRelease.apkAsset(): GithubAsset? =
+        assets.firstOrNull { it.contentType == APK_CONTENT_TYPE }
+            ?: assets.firstOrNull { it.name.endsWith(".apk", ignoreCase = true) }
+
     private suspend fun Activity.getReleaseUpdate(): Update {
         val url = "https://api.github.com/repos/$githubUserName/$githubRepo/releases"
         val headers = mapOf("Accept" to "application/vnd.github.v3+json")
@@ -106,85 +121,89 @@ object InAppUpdater {
             app.get(url, headers = headers).text
         ).toList()
 
-        val versionRegex = Regex("""(.*?((\d+)\.(\d+)\.(\d+))\.apk)""")
-        val versionRegexLocal = Regex("""(.*?((\d+)\.(\d+)\.(\d+)).*)""")
-        val foundList = response.filter { rel ->
-            !rel.prerelease
-        }.sortedWith(compareBy { release ->
-            release.assets.firstOrNull { it.contentType == APK_CONTENT_TYPE }?.name?.let { it1 ->
-                versionRegex.find(it1)?.groupValues?.let {
-                    it[3].toInt() * 100_000_000 + it[4].toInt() * 10_000 + it[5].toInt()
-                }
+        // A draft release has no published asset and must not be offered. A release without
+        // a readable version cannot be compared, so it is dropped instead of sorting as
+        // "newest" the way a null compareBy key did before.
+        val found = response
+            .filter { !it.prerelease && !it.draft }
+            .mapNotNull { release ->
+                val asset = release.apkAsset() ?: return@mapNotNull null
+                val weight = UpdateVersion.weightOf(release.version()) ?: return@mapNotNull null
+                Triple(release, asset, weight)
             }
-        }).toList()
+            .maxByOrNull { it.third }
 
-        val found = foundList.lastOrNull()
-        // Use the apk of the release and not just the first asset, a release can contain
-        // other files as well. The version is read from the name of the apk.
-        val foundAsset = found?.assets?.firstOrNull { it.contentType == APK_CONTENT_TYPE }
-        val foundVersion = foundAsset?.name?.let { versionRegex.find(it) }
-
-        if (foundVersion == null) {
+        if (found == null) {
             return Update(false, null, null, null, null)
         }
 
-        val currentVersion = packageName?.let {
-            packageManager.getPackageInfo(it, 0)
-        }
-
-        val shouldUpdate = if (foundAsset.browserDownloadUrl.isBlank()) {
-            false
-        } else {
-            val installedVersion = currentVersion?.versionName?.let { versionName ->
-                versionRegexLocal.find(versionName)?.groupValues?.let {
-                    it[3].toInt() * 100_000_000 + it[4].toInt() * 10_000 + it[5].toInt()
-                }
-            }
-            val newVersion = foundVersion.groupValues.let {
-                it[3].toInt() * 100_000_000 + it[4].toInt() * 10_000 + it[5].toInt()
-            }
-            // A version that cannot be read is not updated
-            installedVersion != null && installedVersion < newVersion
-        }
+        val (release, foundAsset, _) = found
+        val shouldUpdate = foundAsset.browserDownloadUrl.isNotBlank() &&
+                UpdateVersion.isUpdate(installedVersionName(), release.version())
 
         return Update(
             shouldUpdate,
             foundAsset.browserDownloadUrl,
-            foundVersion.groupValues[2],
-            found.body,
-            found.nodeId
+            release.version(),
+            release.body,
+            release.nodeId
         )
     }
 
+    private fun Activity.installedVersionName(): String? =
+        packageName?.let { packageManager.getPackageInfo(it, 0) }?.versionName
+
+    /**
+     * Update check for the prerelease flavour.
+     *
+     * It used to compare the local commit against the `pre-release` git tag. That tag is not
+     * guaranteed to exist (this fork tags real versions now), and a missing tag made the
+     * whole check throw and report "no update". It also picked `lastOrNull` of the release
+     * list, which is not ordered, so it could offer an older build.
+     *
+     * The version code is what actually changes on every prerelease build, so compare that.
+     */
     private suspend fun Activity.getPreReleaseUpdate(): Update {
-        val tagUrl =
-            "https://api.github.com/repos/$githubUserName/$githubRepo/git/ref/tags/pre-release"
         val releaseUrl = "https://api.github.com/repos/$githubUserName/$githubRepo/releases"
         val headers = mapOf("Accept" to "application/vnd.github.v3+json")
         val response = parseJson<Array<GithubRelease>>(
             app.get(releaseUrl, headers = headers).text
         ).toList()
 
-        val found = response.lastOrNull { rel ->
-            rel.prerelease || rel.tagName == "pre-release"
-        }
+        // Prefer the rolling "pre-release" release, fall back to any latest non-draft one.
+        val found = response
+            .filter { !it.draft }
+            .filter { it.prerelease || it.tagName == "pre-release" }
+            .firstOrNull { it.tagName == "pre-release" }
+            ?: response.filter { !it.draft }.firstOrNull()
 
-        val foundAsset = found?.assets?.filter { it ->
-            it.contentType == APK_CONTENT_TYPE
-        }?.getOrNull(0)
-
+        val foundAsset = found?.apkAsset()
         if (foundAsset == null) {
             return Update(false, null, null, null, null)
         }
 
-        val tagResponse = parseJson<GithubTag>(app.get(tagUrl, headers = headers).text)
-        val updateCommitHash = tagResponse.githubObject.sha.trim().take(7)
-        Log.d(LOG_TAG, "Fetched GitHub tag: $updateCommitHash")
+        val updateVersion = found.version()
+
+        // Fall back to the commit hash when no version can be read, so an
+        // unversioned build still offers an update.
+        val shouldUpdate = if (updateVersion != null) {
+            UpdateVersion.isUpdate(installedVersionName(), updateVersion)
+        } else {
+            val tagUrl =
+                "https://api.github.com/repos/$githubUserName/$githubRepo/git/ref/tags/${found.tagName}"
+            val updateCommitHash = parseJson<GithubTag>(
+                app.get(tagUrl, headers = headers).text
+            ).githubObject.sha.trim().take(7)
+            Log.d(LOG_TAG, "Fetched GitHub tag: $updateCommitHash")
+            currentCommitHash() != updateCommitHash
+        }
+
+        Log.d(LOG_TAG, "prerelease check: version=$updateVersion shouldUpdate=$shouldUpdate")
 
         return Update(
-            currentCommitHash() != updateCommitHash,
+            shouldUpdate,
             foundAsset.browserDownloadUrl,
-            updateCommitHash,
+            updateVersion ?: found.nodeId,
             found.body,
             found.nodeId
         )
@@ -193,28 +212,40 @@ object InAppUpdater {
     private val updateLock = Mutex()
 
     private suspend fun Activity.downloadUpdate(url: String): Boolean {
+        val appUpdateName = "CloudStream"
+        val appUpdateSuffix = "apk"
+        var downloadedFile: File? = null
         try {
             Log.d(LOG_TAG, "Downloading update: $url")
-            val appUpdateName = "CloudStream"
-            val appUpdateSuffix = "apk"
 
             // Delete all old updates
             this.cacheDir.listFiles()?.filter {
                 it.name.startsWith(appUpdateName) && it.extension == appUpdateSuffix
             }?.forEach { deleteFileOnExit(it) }
 
-            val downloadedFile = File.createTempFile(appUpdateName, ".$appUpdateSuffix")
-            val sink: BufferedSink = downloadedFile.sink().buffer()
+            // Create the file inside cacheDir, so that the cleanup above actually finds it.
+            // File.createTempFile without a directory writes to the system temp dir, which
+            // was never cleaned and left every downloaded update behind.
+            downloadedFile = File.createTempFile(appUpdateName, ".$appUpdateSuffix", cacheDir)
 
             updateLock.withLock {
-                sink.writeAll(app.get(url).body.source())
-                sink.close()
+                // use {} so the sink is closed even when the download throws.
+                downloadedFile.sink().buffer().use { sink ->
+                    sink.writeAll(app.get(url).body.source())
+                }
+
+                if (downloadedFile.length() <= 0L) {
+                    throw IOException("The downloaded update is empty")
+                }
+
                 openApk(this, Uri.fromFile(downloadedFile))
             }
 
             return true
         } catch (e: Exception) {
             logError(e)
+            // A failed or partial download must not stay on disk.
+            downloadedFile?.let { deleteFileOnExit(it) }
             return false
         }
     }
