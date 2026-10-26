@@ -150,12 +150,16 @@ object PluginManager {
 
     suspend fun deleteRepositoryData(repositoryPath: String) {
         lock.withLock {
+            // Compare the parent directory exactly instead of a substring of the whole
+            // path: "…/repo" is a substring of "…/repo2", so deleting one repository
+            // used to drop the plugin entries of an unrelated one (its files stayed on
+            // disk but the app forgot them forever).
+            val target = File(repositoryPath).absoluteFile
             val plugins = getPluginsOnline().filter {
-                !it.filePath.contains(repositoryPath)
+                File(it.filePath).absoluteFile.parentFile != target
             }
-            val file = File(repositoryPath)
             safe {
-                if (file.exists()) file.deleteRecursively()
+                if (target.exists()) target.deleteRecursively()
             }
             setKey(PLUGINS_KEY, plugins)
         }
@@ -688,8 +692,13 @@ object PluginManager {
 
     fun unloadPlugin(absolutePath: String) {
         Log.i(TAG, "Unloading plugin: $absolutePath")
-        val plugin = plugins[absolutePath]
-        if (plugin == null) {
+
+        // Take the lock before the lookup: loadPlugin writes to `plugins` from several
+        // coroutines (amap), so an unsynchronised read here could miss a plugin that is
+        // being registered right now and leave its classloader reachable forever.
+        val plugin = synchronized(plugins) {
+            plugins[absolutePath]
+        } ?: run {
             Log.w(TAG, "Couldn't find plugin $absolutePath")
             return
         }
@@ -717,16 +726,18 @@ object PluginManager {
             VideoClickActionHolder.allVideoClickActions.removeAll { action -> action.sourcePlugin == plugin.filename }
         }
 
-        synchronized(classLoaders) {
-            classLoaders.values.removeIf { v -> v == plugin }
-        }
-
+        // Remove every trace of the instance in one go, so the classloader cannot be kept
+        // alive by one map while another has already let it go.
         synchronized(plugins) {
             plugins.remove(absolutePath)
-        }
 
-        synchronized(urlPlugins) {
-            urlPlugins.values.removeIf { v -> v == plugin }
+            synchronized(classLoaders) {
+                classLoaders.values.removeIf { v -> v == plugin }
+            }
+
+            synchronized(urlPlugins) {
+                urlPlugins.values.removeIf { v -> v == plugin }
+            }
         }
     }
 

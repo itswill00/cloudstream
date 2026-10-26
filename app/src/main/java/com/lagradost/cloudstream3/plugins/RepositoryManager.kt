@@ -194,7 +194,8 @@ object RepositoryManager {
         context: Context,
         pluginUrl: String,
         file: File,
-        expectedFileHash: String?
+        expectedFileHash: String?,
+        expectedFileSize: Long? = null,
     ): File? {
         return safeAsync {
             val parentDir = file.parentFile ?: return@safeAsync null
@@ -203,39 +204,59 @@ object RepositoryManager {
             // Prevent corrupting the plugin file if the operation fails
             val tempFile = File.createTempFile(file.name, ".tmp", context.cacheDir)
 
-            val body = app.get(convertRawGitUrl(pluginUrl)).okhttpResponse.body
-
-            body.byteStream().use { body ->
-                tempFile.outputStream().use { fileSteam ->
-                    body.copyTo(fileSteam)
-                }
-            }
-
-            if (expectedFileHash != null) {
-                val downloadHash = sha256(tempFile)
-                if (expectedFileHash != downloadHash) {
-                    tempFile.delete()
-                    throw IllegalStateException("Extension hash mismatch when validating '${file.name}'! Expected: '$expectedFileHash', got: '$downloadHash'.")
-                }
-            }
-
-            // We prefer the operation to be atomic
             try {
-                Files.move(
-                    tempFile.toPath(),
-                    file.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE
-                )
-            } catch (_: AtomicMoveNotSupportedException) {
-                Files.move(
-                    tempFile.toPath(),
-                    file.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING
-                )
-            }
+                val responseBody = app.get(convertRawGitUrl(pluginUrl)).okhttpResponse.body
 
-            file
+                var written = 0L
+                responseBody.byteStream().use { body ->
+                    tempFile.outputStream().use { fileSteam ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            val read = body.read(buffer)
+                            if (read < 0) break
+                            fileSteam.write(buffer, 0, read)
+                            written += read
+                        }
+                    }
+                }
+
+                // The advertised size is only a cheap sanity check, the digest below is
+                // what actually protects the plugin binary.
+                if (expectedFileSize != null && expectedFileSize > 0 && written != expectedFileSize) {
+                    throw IllegalStateException(
+                        "Extension size mismatch when validating '${file.name}'! Expected: '$expectedFileSize', got: '$written'."
+                    )
+                }
+
+                if (expectedFileHash != null) {
+                    val downloadHash = sha256(tempFile)
+                    if (expectedFileHash != downloadHash) {
+                        throw IllegalStateException("Extension hash mismatch when validating '${file.name}'! Expected: '$expectedFileHash', got: '$downloadHash'.")
+                    }
+                }
+
+                // We prefer the operation to be atomic
+                try {
+                    Files.move(
+                        tempFile.toPath(),
+                        file.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE
+                    )
+                } catch (_: AtomicMoveNotSupportedException) {
+                    Files.move(
+                        tempFile.toPath(),
+                        file.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                }
+
+                file
+            } finally {
+                // A cancelled or failed download used to leave the temp file behind in
+                // cacheDir forever. After a successful move the file no longer exists.
+                if (tempFile.exists()) tempFile.delete()
+            }
         }
     }
 
