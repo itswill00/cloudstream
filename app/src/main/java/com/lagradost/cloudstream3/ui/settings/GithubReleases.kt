@@ -5,6 +5,7 @@ import com.lagradost.cloudstream3.BuildConfig
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream4.viewmodels.GithubFile
 import com.lagradost.cloudstream4.viewmodels.GithubRepository
+import com.lagradost.cloudstream4.viewmodels.UpdateVersion
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.io.FileNotFoundException
@@ -152,6 +153,8 @@ object GithubReleases : GithubRepository {
             displayName = foundAsset.name.substringBeforeLast("."),
             changeLog = latestRelease.body,
             tagName = latestRelease.tagName,
+            versionName = UpdateVersion.nameOf(latestRelease.tagName)
+                ?: UpdateVersion.nameOf(foundAsset.name),
             nodeId = latestRelease.nodeId
         )
     }

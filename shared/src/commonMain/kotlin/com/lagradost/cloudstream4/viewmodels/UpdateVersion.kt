@@ -1,4 +1,4 @@
-package com.lagradost.cloudstream3.utils
+package com.lagradost.cloudstream4.viewmodels
 
 /**
  * Version parsing for the in-app updater.

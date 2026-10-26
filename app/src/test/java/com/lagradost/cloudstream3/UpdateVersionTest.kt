@@ -1,6 +1,6 @@
 package com.lagradost.cloudstream3
 
-import com.lagradost.cloudstream3.utils.UpdateVersion
+import com.lagradost.cloudstream4.viewmodels.UpdateVersion
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -58,6 +58,16 @@ class UpdateVersionTest {
         assertTrue(UpdateVersion.isUpdate("4.9.0-PRE", "4.10.0"))
         assertFalse(UpdateVersion.isUpdate("4.9.0", "4.9.0"))
         assertFalse(UpdateVersion.isUpdate("4.9.0", "4.8.1"))
+    }
+
+    @Test
+    fun `the same version with a flavor suffix is not an update`() {
+        // The prerelease flavour reports "4.9.1-PRE" while the release is tagged "4.9.1".
+        // Comparing commit shas instead of versions offered this update forever.
+        assertFalse(UpdateVersion.isUpdate("4.9.1-PRE", "4.9.1"))
+        assertFalse(UpdateVersion.isUpdate("4.9.1", "4.9.1-PRE"))
+        assertTrue(UpdateVersion.isUpdate("4.9.0-PRE", "4.9.1"))
+        assertTrue(UpdateVersion.isUpdate("4.9.1-PRE", "4.10.0"))
     }
 
     @Test

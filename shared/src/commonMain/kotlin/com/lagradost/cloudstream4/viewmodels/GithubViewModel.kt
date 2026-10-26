@@ -52,6 +52,8 @@ data class GithubFile(
     val changeLog: String,
     /** Name of the tag, aka unique release name like vX.X.X or pre-release */
     val tagName: String,
+    /** Version inside the tag or the file name, e.g. "4.9.1" */
+    val versionName: String? = null,
     /** Unique node id */
     val nodeId: String,
 )
@@ -261,32 +263,24 @@ class GithubViewModel(
             copy(dialog = baseDialog)
         }
 
-        // If on pre-release check if the sha matches, as we do not look at the version
+        // The prerelease flavour used to compare the build commit against the sha of the
+        // "pre-release" tag. That tag does not exist here, and even when a tag resolves it
+        // points at the version-bump commit, which never equals the commit an apk was built
+        // from. Every check therefore reported a new update forever. Compare versions
+        // instead, and keep the sha only for display.
         var oldSha: String? = null
         var newSha: String? = null
         if (prerelease) {
-            // A missing prerelease tag must not abort the check: the release lookup below
-            // falls back to the newest published release.
-            val sha = try {
+            oldSha = buildSha.take(7)
+            newSha = try {
                 repository.getSha(
                     tag = remotePrereleaseTag,
                     userName = remoteUserName,
                     repository = remoteRepository,
-                )
+                ).take(7)
             } catch (t: Throwable) {
+                // A missing tag is not an error, the release lookup below handles it.
                 null
-            }
-            if (sha != null) {
-                oldSha = buildSha.take(7)
-                newSha = sha.take(7)
-
-                // Only match the first 7 chars, as that is what is saved
-                if (oldSha == newSha) {
-                    updateState {
-                        copy(dialog = baseDialog.copy(state = GithubUpdateDialogState.NoUpdateFound))
-                    }
-                    return@dispatchUpdate
-                }
             }
         }
 
@@ -298,8 +292,10 @@ class GithubViewModel(
             contentType = remoteContentType
         )
 
-        // If on stable, only check that the display name matches
-        if (!prerelease && release.displayName == versionName) {
+        // Compared by version, not by file name or commit: the asset is
+        // "cloudstream-4.9.1-arm64-v8a" while the installed version is "4.9.1", and the tag
+        // points at the version-bump commit rather than the one the apk was built from.
+        if (!UpdateVersion.isUpdate(versionName, release.versionName)) {
             updateState {
                 copy(dialog = baseDialog.copy(state = GithubUpdateDialogState.NoUpdateFound))
             }
