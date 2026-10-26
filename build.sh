@@ -238,8 +238,14 @@ preflight() {
   else
     local keys_env="${KEYS_ENV_FILE:-/root/keys/env.sh}"
     if [ -f "$keys_env" ]; then
+      # The values have to be exported: app/build.gradle.kts reads SIGNING_KEY_ALIAS and
+      # the passwords from the environment, and a plain `source` only sets shell
+      # variables, which the gradle child process never sees. That made every "signed"
+      # build come out unsigned.
+      set -a
       # shellcheck disable=SC1090
       source "$keys_env"
+      set +a
       ok "signing    : key '${SIGNING_KEY_ALIAS:-?}' from $keys_env"
     else
       warn "signing    : no key found ($keys_env), the APK stays unsigned"
@@ -526,13 +532,21 @@ generate_release_notes() {
     size=$(awk -v s="$(stat -c%s "$found")" 'BEGIN{printf "%.1f MB", s/1048576}')
   fi
 
+  # Say what the APK actually is, instead of assuming it was signed.
+  local signing_note="unsigned"
+  if [ -n "$apk" ] && [ -f "$found" ]; then
+    if "$SDK_DIR"/build-tools/"$BUILD_TOOLS"/apksigner verify "$found" >/dev/null 2>&1; then
+      signing_note="signed with the release key"
+    fi
+  fi
+
   {
     echo "Pre-release build of the fork, it is for testing on a device before a"
     echo "release is tagged."
     echo
     echo "Build: \`$commit\` ($(date '+%F %T'))"
     if [ -n "$apk" ]; then
-      echo "APK: \`$apk\` ($size, arm64-v8a, signed with the release key)"
+      echo "APK: \`$apk\` ($size, arm64-v8a, $signing_note)"
     fi
     echo
     echo "## What is new"
@@ -562,7 +576,7 @@ generate_release_notes() {
     echo "2. The build is for arm64 only."
     echo "3. Report the problems in the test group on Telegram."
     echo
-    echo "AI assistance: this build was written with AI (OpenCode), it was checked"
+    echo "AI assistance: this build was written with AI (Claude Code), it was checked"
     echo "with the linter, the unit tests and the binary compatibility check."
   } > "$out"
 }
