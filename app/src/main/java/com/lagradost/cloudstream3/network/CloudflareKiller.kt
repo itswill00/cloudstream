@@ -10,6 +10,8 @@ import com.lagradost.nicehttp.Requests.Companion.await
 import com.lagradost.nicehttp.cookies
 import kotlinx.coroutines.runBlocking
 import okhttp3.Headers
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
@@ -40,7 +42,9 @@ class CloudflareKiller : Interceptor {
         }
     }
 
-    val savedCookies: MutableMap<String, Map<String, String>> = mutableMapOf()
+    // Interceptors run on several OkHttp dispatcher threads and the cookie map is also
+    // written from the WebView callback thread, so a plain LinkedHashMap could lose updates.
+    val savedCookies: MutableMap<String, Map<String, String>> = java.util.concurrent.ConcurrentHashMap()
 
     /**
      * Gets the headers with cookies, webview user agent included!
@@ -50,7 +54,12 @@ class CloudflareKiller : Interceptor {
             mapOf("user-agent" to it)
         } ?: emptyMap()
 
-        return getHeaders(userAgentHeaders, savedCookies[URI(url).host] ?: emptyMap())
+        // URI#getHost returns null for relative/opaque strings, and plugins call this helper
+        // with arbitrary input; an unparseable url must fall back instead of throwing.
+        val host = safe { URI(url).host } ?: url.toHttpUrlOrNull()?.host
+        val cookies = host?.let { savedCookies[it] } ?: emptyMap()
+
+        return getHeaders(userAgentHeaders, cookies)
     }
 
     override fun intercept(chain: Interceptor.Chain): Response = runBlocking {
